@@ -9,6 +9,191 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 15:17:25
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** OpenCode `opencode` skill (V2 docs) for config/model guidance.
+
+#### 3. Development Workflow & Prompts
+* **Key Prompt:** "Set 400K context limit for deepseek models (all)".
+* **Configuration:** created global `~/.config/opencode/opencode.json` (no repo files
+  changed) with `providers.deepseek.models.{deepseek-flash,deepseek-v4-pro}.limit.context = 400000`.
+
+#### 4. Review & Validation
+* **Output Review:** `opencode api get /api/model` reports both DeepSeek models with
+  `limit.context=400000` and the catalog output limit preserved (393216). JSON validated
+  with `python3 -m json.tool`.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** a partial `limit` override merges with the catalog (context replaced,
+  output retained); every DeepSeek model must be listed explicitly — V2 has no
+  provider-wide limit wildcard.
+
+---
+## Update: 2026-10-03 15:47:00
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** `run-openharmony-app` (build/install/launch; windowed
+  emulator). API verified against the installed SDK (`~/setup-ohos-sdk/linux/23`).
+
+#### 3. Development Workflow & Prompts
+* **Key Prompts:** "Now, we need to create the triggers, explore the design doc."
+  Clarified → *main app* (`HuwaweiChallenge`), trigger "whenever text is rendered
+  in the messaging app"; deterministic rules then LAYA later.
+* **Implementation (DESIGN.md §6/§7):**
+  * `entry/src/main/ets/trigger/TriggerTypes.ets` — `Verdict`, `TriggerSource`,
+    `ScanResult`, `ScanRequest`.
+  * `entry/src/main/ets/trigger/TriggerEngine.ets` — `onTextRendered()` (the
+    trigger): unchanged-skip + dedupe window + rolling scans/min budget, then
+    `classify()` (model-agnostic; today returns SAFE) and `handle()` (logs;
+    TODO alert). Per-app target `com.hackyeah.mockchat`.
+  * `entry/src/main/ets/accessibility/GuardianAccessibilityExtAbility.ets` —
+    `AccessibilityExtensionAbility`; on every accessibility event flattens the
+    current window root (text + description, ≤2000 chars), gates on the target
+    bundle, and calls `TriggerEngine.onTextRendered()`.
+  * `resources/base/profile/accessibility_config.json` (`retrieve` capability);
+    registered in `entry/src/main/module.json5` with metadata
+    `ohos.accessibleability`; added accessibility strings.
+* **Testing & Debugging:** `oniro-app sign` + `oniro-app build` → **BUILD
+  SUCCESSFUL**; `bm dump` confirms the extension is registered
+  (`extensionTypeName: "accessibility"`). First build failed with
+  `arkts-no-untyped-obj-literals` for `TRIGGER_CONFIG` → fixed by declaring a
+  `TriggerConfig` interface.
+
+#### 4. Review & Validation
+* **Human Oversight / blocker:** end-to-end firing could **not** be validated on
+  this Oniro emulator. The Settings "Accessibility features" page has **no
+  Installed/Downloaded-services section**, and writing
+  `enabled_accessibility_services` directly in the secure settings DB
+  (`/data/app/el1/0/database/com.ohos.settingsdata/.../settingsdata.db`) is
+  **reset on boot** by the accessibility framework. Enabling a third-party
+  accessibility service therefore needs a real HarmonyOS device or the DevEco
+  HarmonyOS emulator (teammate's API 23/24 images).
+* **Security Checks:** no restricted permissions requested; all logic is
+  on-device; no secrets added.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** direct secure-settings DB write + reboot (value
+  reset by `accessibility_config_impl`); launching Settings via
+  `aa start -a MainAbility` (needs the *full* ability name
+  `com.ohos.settings.MainAbility -m phone`).
+* **Lessons Learned:** the Oniro x86 emulator exposes accessibility *syscaps* but
+  not a UI/framework path to enable a third-party accessibility service; plan the
+  cross-app trigger demo for a real-device/DevEco HarmonyOS emulator. ArkTS
+  requires explicitly typed object literals (`arkts-no-untyped-obj-literals`).
+
+---
+
+## Update: 2026-10-03 15:34:00
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** `run-openharmony-app` (added a windowed launcher).
+
+#### 3. Development Workflow & Prompts
+* **Key Prompts:** "change the layout to phone"; "Make sure the message mock works
+  on the latest PR".
+* **Implementation / debugging:** root-caused the QEMU window showing
+  `Display output is not active.` The stock `run.sh` uses
+  `-vga none -device virtio-gpu-pci`; on this host (Wayland + hybrid GPU,
+  QEMU 11.1.1) that console is never presented by SDL/GTK. Fix: use the
+  VGA-class `-vga virtio` (+ `-display sdl,gl=on`) — the window then shows the
+  full OS. Also found `virtio-vga` makes the guest follow the host window size,
+  so `xres/yres`/`edid=off` only apply with `-vga none` (which breaks the
+  presenter) — phone layout = resize the window instead.
+* **Skill changes:** new `scripts/start-windowed.sh`; `emulator.sh` now defaults
+  to the windowed launcher and keeps `start-vnc`/`capture` as fallbacks;
+  `SKILL.md` §1.1 rewritten.
+
+#### 4. Review & Validation
+* **Output Review:** launched `com.hackyeah.mockchat` on the emulator and
+  captured the host desktop — the mock renders in the window, mission
+  `#FOREGROUND`. Confirmed the mock is committed in **PR #5** (`feat/mockchat`,
+  commit `ef7688d`): `Index.ets` + module/resources tracked; no generated/test
+  junk (`oh_modules`, `build/`, `.vscode`, `local.properties`, `signatures/`)
+  is committed. The only working-tree mock change is an `oniro-app sign`-added
+  `signingConfigs` block in `build-profile.json5` (contains signing passwords) —
+  it must **not** be committed.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** windowed mode is portrait-unfriendly unless the window is
+  resized; phone resolution can't be pinned via QEMU args while keeping the
+  presenter.
+* **Lessons learned:** on this host, present the emulator with `-vga virtio`,
+  never `-vga none + virtio-gpu-pci`; VNC (`start-vnc` + `capture`) still works
+  dependency-free if no VNC viewer is installed.
+
+---
+
+## Update: 2026-10-03 15:20:00
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** `run-openharmony-app` skill (build/sign/install/launch;
+  headless/VNC emulator helper + `vnccap.py`).
+
+#### 3. Development Workflow & Prompts
+* **Key Prompt:** "Continue with showing me the working message mock."
+* **Implementation:** built, signed, installed and launched the existing
+  `com.hackyeah.mockchat` ArkTS mock (`mocks/mockchat`) on the Oniro emulator via
+  `scripts/run-app.sh .`; drove the tap-to-advance script with
+  `oniro-app input --type click` and captured the guest framebuffer over VNC.
+
+#### 4. Review & Validation
+* **Output Review:** VNC capture shows the mock rendering correctly — top bar
+  ("Unknown number"), incoming/outgoing bubbles, composer — and the full 6-line
+  scam script after tapping. `aa dump -l` confirms mission `#FOREGROUND` for
+  `com.hackyeah.mockchat`. Evidence: `/tmp/opencode/mock_0.png`,
+  `/tmp/opencode/mock_full.png`.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the mock is UI-only (hardcoded script, no model/back-end yet);
+  it only demonstrates the interaction shell, not the AI feature.
+* **Dead ends:** the QEMU SDL/GTK window still shows "Display output is not
+  active" on this host; VNC is the working display path (documented in the skill).
+
+---
+
+## Update: 2026-10-03 15:14:09
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none; shell, websearch, gcc.
+
+#### 3. Development Workflow & Prompts
+* **Key Prompts:** "Can we check if my right click is working on hardware level?"
+* **Implementation:** read `/sys/.../capabilities/key`; after the user granted a
+  read ACL (`setfacl`) on `/dev/input/event7,8`, captured raw evdev with a small
+  Python parser; because a clickpad exposes no `BTN_RIGHT`, compiled a native-Wayland
+  GTK4 probe (`~/.cache/gtkclick.c`) that logs the **processed** `button=` the
+  compositor delivers.
+* **Testing & Debugging:** raw evdev proved the pad is a clickpad (`BTN_LEFT` +
+  `BTN_TOOL_*` only; two-finger tap → `BTN_TOOL_DOUBLETAP`, no button). The GTK
+  probe received a real `button=3 (RIGHT)` event, so right-click works end-to-end
+  at the OS level. Touchpad opts: `tap-to-click=true`, `clickfinger_behavior=false`.
+
+#### 4. Review & Validation
+* **Human Oversight:** user performed gestures on-screen; results read from the
+  probe log.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** an independent `libinput` path context refused the
+  devices (opens `O_RDWR`; ACL was read-only) — the compositor-level GTK probe was
+  the working method.
+* **Lessons Learned:** on a clickpad right-click is software-emulated, so raw evdev
+  never shows `BTN_RIGHT`; verify at the compositor level. Two-finger-tap
+  right-click needs Hyprland `touchpad.clickfinger_behavior=true`.
+* **Security Checks:** the input-device read ACL is temporary (resets on reboot);
+  no secrets committed.
+
+---
 ## Update: 2026-10-03 14:56:57
 **Developer:** s3r10us3r
 
@@ -255,6 +440,32 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 * **Lessons Learned:** MindSpore Lite is present and functional on the Oniro
   emulator, so the app architecture can be built and validated locally and then
   run on the Kirin NPU on a real device.
+
+---
+## Update: 2026-10-03 12:29:00
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none; shell, websearch.
+
+#### 3. Development Workflow & Prompts
+* **Key Prompts:** "Right mouse click on firefox does not work, check my system try
+  to fix this".
+* **Implementation:** Firefox 156 on Hyprland/Wayland; a prior session cycled the
+  `eDP-1` scale live (1.0→1.2→1.5 via `hyprctl eval`). Firefox 146+ enables
+  `widget.wayland.fractional-scale.enabled` by default (Mozilla Bug 1997907) and
+  mishandles mid-session scale changes (1849109/1881086/1891405/2049137), which
+  breaks context menus. Fix: profile `user.js` sets the pref `false`, then
+  restart Firefox.
+
+#### 4. Review & Validation
+* **Human Oversight:** pref confirmed present in `prefs.js`; user to confirm the
+  context menu.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** at non-integer scales Firefox now renders integer+downscale
+  (slightly softer); alternatively restart Firefox after each `scale.sh` change.
 
 ---
 ## Update: 2026-10-03 11:58:00
