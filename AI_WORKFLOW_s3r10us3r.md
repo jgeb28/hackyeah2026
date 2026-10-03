@@ -9,6 +9,55 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 23:52:00
+**Developer:** s3r10us3r
+
+**Task:** add a **data-driven incident detail view** — a widget that renders a
+supplied KB-shape incident JSON (title, description, explanation, remediation
+steps) as a normal app screen, to be fed by LAYA later.
+
+#### 1. AI Features
+* **Model/Service:** none at runtime in this widget — it is a pure renderer that
+  displays an incident chosen elsewhere (LAYAA/TriggerEngine). No inference here.
+* **Inference Flow:** not applicable — input is a JSON string, output is UI.
+* **Data Handling & Privacy:** the supplied incident JSON is rendered in-app; no
+  network, no storage beyond the bundled `kb/en/incidents.json`.
+* **Limitations & Validation:** text only (no buttons/links/images); malformed JSON
+  → a friendly error, never a crash. Covered by 4 unit tests in
+  `tests/unit/detail.test.ts` (all 30 project unit tests pass).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none new.
+* **Configuration:** `oniro-app build`/`sign` (`--apl system_core` + ACLs); emulator
+  input via `uinput -T -c`; screenshots via `snapshot_display`.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** widget = JSON-in → UI-out; a normal app page hosts it;
+  a route `json` param is the seam for supplied JSON (LAYAA); a hardcoded incident is
+  the deterministic test fixture.
+* **Implementation:** `detail/DetailTypes.ts` (`parseIncident` + `IncidentDoc`),
+  `components/IncidentDetailView.ets`, `pages/IncidentDetail.ets`; Index entry button
+  and `main_pages.json` registration.
+* **Key Prompts:** "a view that will generate the details when clicked … rendered from
+  a supplied JSON"; "We render from the KB shape. Laya just chooses it"; "remove the
+  sources section"; "give the other agent the ability to open it with supplied JSON".
+* **Testing & Debugging:** unit tests for the parser; emulator screenshots of the
+  rendered incident (KB entry and hardcoded fixture).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer fixed the KB shape, required text-only rendering, and
+  asked to drop the Sources section.
+* **Security Checks:** no signing material committed (`build-profile.json5` restored);
+  `.npmrc` git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** first implemented a KB lookup by `id`; replaced with a
+  single hardcoded incident so the test fixture is deterministic.
+* **Lessons Learned:** keep the widget free of capture/OCR/LAYAA calls so it stays a
+  reusable, independently testable seam.
+
+---
 ## Update: 2026-10-03 22:17:00
 **Developer:** s3r10us3r
 

@@ -4,6 +4,7 @@
     "pages/TriggerDemo",
     "pages/SentinelOverlay",
     "pages/FloatingIsland",
-    "pages/OcrDemo"
+    "pages/OcrDemo",
+    "pages/IncidentDetail"
   ]
 }

@@ -56,6 +56,14 @@ struct Index {
         .onClick(() => {
           router.pushUrl({ url: 'pages/OcrDemo' });
         })
+
+      Button('View incident details')
+        .fontSize(15)
+        .width(240)
+        .height(44)
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/IncidentDetail' });
+        })
     }
     .width('100%')
     .height('100%')
