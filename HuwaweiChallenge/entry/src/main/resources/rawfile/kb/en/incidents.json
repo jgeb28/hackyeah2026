@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "locale": "en",
+  "severityColors": {
+    "CRITICAL": "#E84026",
+    "WARNING": "#ED6F21",
+    "INFO": "#0A59F7"
+  },
+  "prompts": {
+    "localSystem": "You are Guardian, a calm on-device safety assistant. Write a short, reassuring alert for an older adult. Output only JSON {title, text}. No links, no emojis.",
+    "cloudSystem": "You are Guardian's cloud assistant. Write a concise, empathetic alert grounded only in the given incident and message. Output only JSON {title, text, sources}. Never invent facts or URLs."
+  },
+  "incidents": [
+    {
+      "id": "family-emergency-money",
+      "version": 1,
+      "locale": "en",
+      "category": "scam",
+      "severity": "CRITICAL",
+      "escalation": "L0",
+      "cta": "What should I do?",
+      "title": "Possible family-emergency scam",
+      "description": "Someone claims to be a relative in trouble and asks for urgent money, often saying not to call.",
+      "keywords": ["it's me", "new number", "phone broke", "accident", "send money", "don't call", "do not call", "transfer", "gift card", "hospital", "bail", "urgent"],
+      "signals": { "required": ["impersonation"], "anyOf": ["payment", "urgency", "secrecy"] },
+      "explanation": "Scammers impersonate a relative in an emergency so you act before you can verify.",
+      "remediation": ["Call your relative on the number you already have.", "Don't send money or gift cards from this chat.", "Ask another family member to confirm."],
+      "actions": ["call-known-number", "learn-more"],
+      "sources": ["FTC — grandparent scam"],
+      "messages": {
+        "level0": { "title": "Possible scam detected", "text": "This message asks for urgent money and says not to call. That's a common family-emergency scam. Call your relative on a number you already know." }
+      }
+    },
+    {
+      "id": "misinfo-breaking-event",
+      "version": 1,
+      "locale": "en",
+      "category": "misinformation",
+      "severity": "WARNING",
+      "escalation": "L2",
+      "cta": "Check this claim",
+      "title": "Unverified breaking-news claim",
+      "description": "An alarming 'breaking news' claim with no credible source, urging you to share it quickly.",
+      "keywords": ["breaking", "confirm before deleted", "they don't want you to know", "sources say", "share now", "urgent", "wake up"],
+      "signals": { "anyOf": ["viral-urgency", "no-source", "emotional"] },
+      "explanation": "Unverified viral claims spread through emotion and urgency; a real story names a credible source.",
+      "remediation": ["Check a trusted news outlet before believing or sharing.", "Don't forward it until it is confirmed."],
+      "actions": ["check-sources", "learn-more"],
+      "sources": ["Guidance — how to spot misinformation"],
+      "messages": {
+        "level0": { "title": "Unverified breaking-news claim", "text": "This post makes an alarming claim without a credible source. Check a trusted news outlet before believing or sharing it." },
+        "level2": { "instruction": "Given the claim, search reputable outlets and state whether it is supported, unresolved, or contradicted, citing sources. Keep it short and non-alarmist.", "maxTokens": 200, "consentRequired": true, "fallback": "level0" }
+      }
+    },
+    {
+      "id": "bank-authority-impersonation",
+      "version": 1,
+      "locale": "en",
+      "category": "scam",
+      "severity": "CRITICAL",
+      "escalation": "L0",
+      "cta": "What should I do?",
+      "title": "Possible impersonation",
+      "description": "Someone claims to be your bank, police, or tax office and pushes you to verify or pay immediately.",
+      "keywords": ["bank fraud department", "suspicious transaction", "verify your account", "account will be frozen", "click here", "tax office", "police", "final warning"],
+      "signals": { "required": ["authority"], "anyOf": ["credential", "link", "urgency"] },
+      "explanation": "Real banks and authorities never ask you to verify or pay through a link in a message.",
+      "remediation": ["Contact your bank using the number on your card or the official app.", "Don't tap the link or enter your details.", "Report the message."],
+      "actions": ["call-bank", "report", "learn-more"],
+      "sources": ["Bank security guidance"],
+      "messages": {
+        "level0": { "title": "Possible impersonation", "text": "Your bank or the authorities never ask you to 'verify' or pay through a link in a message. Contact them using the number on your card or the official app." }
+      }
+    },
+    {
+      "id": "delivery-fee-smishing",
+      "version": 1,
+      "locale": "en",
+      "category": "scam",
+      "severity": "WARNING",
+      "escalation": "L0",
+      "cta": "What should I do?",
+      "title": "Possible parcel scam",
+      "description": "A message about a held parcel that asks for a small fee or your details via a link.",
+      "keywords": ["parcel held", "delivery failed", "customs fee", "small fee", "reschedule", "redelivery", "track here"],
+      "signals": { "required": ["delivery"], "anyOf": ["link", "payment"] },
+      "explanation": "Couriers do not charge surprise fees through links; the link harvests card details.",
+      "remediation": ["Track the parcel in the courier's official app.", "Don't pay through the link."],
+      "actions": ["open-courier-app", "report", "learn-more"],
+      "sources": ["Consumer protection — parcel scams"],
+      "messages": {
+        "level0": { "title": "Possible parcel scam", "text": "A real delivery service won't charge an unexpected fee through a link. Track your parcel in the courier's official app." }
+      }
+    },
+    {
+      "id": "otp-verification-theft",
+      "version": 1,
+      "locale": "en",
+      "category": "scam",
+      "severity": "CRITICAL",
+      "escalation": "L0",
+      "cta": "What should I do?",
+      "title": "Never share this code",
+      "description": "Someone asks you to read out or forward a one-time code.",
+      "keywords": ["share the code", "6-digit code", "read me the code", "support", "verify", "otp", "passcode", "one-time code"],
+      "signals": { "required": ["code-request"] },
+      "explanation": "A one-time code is the last step to log in or move money; whoever gets it can act as you.",
+      "remediation": ["Never share the code with anyone.", "Hang up and contact the bank using the official number."],
+      "actions": ["learn-more"],
+      "sources": ["Bank security guidance"],
+      "messages": {
+        "level0": { "title": "Never share this code", "text": "No bank or service will ever ask you to read out or forward a code. Don't share it, even if the caller sounds official." }
+      }
+    },
+    {
+      "id": "gift-card-utility-threat",
+      "version": 1,
+      "locale": "en",
+      "category": "scam",
+      "severity": "CRITICAL",
+      "escalation": "L0",
+      "cta": "What should I do?",
+      "title": "Possible payment threat scam",
+      "description": "A threat of disconnection, fine, or arrest with a demand to pay using gift cards or crypto.",
+      "keywords": ["final notice", "disconnection", "pay with gift cards", "fine", "arrest", "legal action", "pay today", "bitcoin"],
+      "signals": { "required": ["threat"], "anyOf": ["giftcard", "crypto", "urgency"] },
+      "explanation": "Legitimate organisations never demand gift-card or crypto payment and do not threaten you by text.",
+      "remediation": ["Don't pay.", "Contact the organisation using its official number."],
+      "actions": ["report", "learn-more"],
+      "sources": ["FTC — gift card scams"],
+      "messages": {
+        "level0": { "title": "Possible payment threat scam", "text": "Utility companies and the police never demand payment by gift card or crypto, and they don't threaten you by text. Don't pay." }
+      }
+    },
+    {
+      "id": "investment-guaranteed-returns",
+      "version": 1,
+      "locale": "en",
+      "category": "scam",
+      "severity": "CRITICAL",
+      "escalation": "L1",
+      "cta": "Explain this",
+      "title": "Possible investment scam",
+      "description": "An offer of guaranteed or unusually high investment returns, pushing you to act fast off-platform.",
+      "keywords": ["guaranteed returns", "weekly profit", "mentor", "dm me", "whatsapp", "top up", "crypto", "double your money", "no risk"],
+      "signals": { "required": ["investment"], "anyOf": ["guaranteed-return", "off-platform", "urgency"] },
+      "explanation": "Guaranteed high returns do not exist; the platform is fake and early 'profits' are other victims' money.",
+      "remediation": ["Don't send money.", "Check whether the firm is licensed with a regulator.", "Talk to someone you trust."],
+      "actions": ["learn-more"],
+      "sources": ["Regulator — investment scam warnings"],
+      "messages": {
+        "level0": { "title": "Possible investment scam", "text": "'Guaranteed' high returns are the hallmark of an investment scam. Never send money to an offer pushed through a chat app." },
+        "level1": { "instruction": "Explain why 'guaranteed returns' plus off-platform pressure indicate fraud, referencing the specific phrase in the user's message. Give one clear next step.", "maxTokens": 140, "fallback": "level0" }
+      }
+    },
+    {
+      "id": "romance-scam",
+      "version": 1,
+      "locale": "en",
+      "category": "scam",
+      "severity": "WARNING",
+      "escalation": "L1",
+      "cta": "Explain this",
+      "title": "Possible romance scam",
+      "description": "An online 'partner' you have never met who repeatedly needs money, often for fees or emergencies.",
+      "keywords": ["i love you", "never met", "customs", "clearance fee", "send money", "gift", "visa", "stuck abroad"],
+      "signals": { "anyOf": ["affection", "money-request", "never-met"] },
+      "explanation": "Romance scammers build trust over weeks, then invent fees and emergencies.",
+      "remediation": ["Pause and talk to someone you trust.", "Never send money to someone you haven't met."],
+      "actions": ["learn-more"],
+      "sources": ["FTC — romance scams"],
+      "messages": {
+        "level0": { "title": "Possible romance scam", "text": "Someone you've never met asking you to pay fees or send money is a common romance scam. Stop and talk to someone you trust." },
+        "level1": { "instruction": "Gently point out the red flags in this message (never met plus a money request) and suggest talking to someone they trust. Warm and non-judgemental.", "maxTokens": 140, "fallback": "level0" }
+      }
+    },
+    {
+      "id": "sextortion-blackmail",
+      "version": 1,
+      "locale": "en",
+      "category": "harassment",
+      "severity": "CRITICAL",
+      "escalation": "L0",
+      "cta": "What should I do?",
+      "title": "Blackmail threat",
+      "description": "A threat to expose private images or information unless you pay.",
+      "keywords": ["i have your video", "webcam", "pay in bitcoin", "i'll send it", "your contacts", "hacked", "pay now"],
+      "signals": { "required": ["threat"], "anyOf": ["crypto", "exposure"] },
+      "explanation": "Sextortion threats are often bluffs sent in bulk; paying rarely stops them.",
+      "remediation": ["Don't pay.", "Keep the messages as evidence.", "Block the sender and report it."],
+      "actions": ["report", "learn-more"],
+      "sources": ["FBI — sextortion guidance"],
+      "messages": {
+        "level0": { "title": "Blackmail threat", "text": "This is a common sextortion or blackmail tactic. Do not pay. Keep the messages, block the sender, and report it." }
+      }
+    },
+    {
+      "id": "safe-otp-notice",
+      "version": 1,
+      "locale": "en",
+      "category": "notice",
+      "severity": "INFO",
+      "escalation": "L0",
+      "cta": "What is this?",
+      "title": "This code keeps you safe",
+      "description": "A legitimate one-time code that arrived without a related request.",
+      "keywords": ["verification code", "one-time password", "do not share this code", "login code", "authentication code"],
+      "signals": { "anyOf": ["code-delivery"] },
+      "explanation": "A one-time code confirms a login or payment; sharing it lets someone act as you.",
+      "remediation": ["Never share this code with anyone.", "If you didn't request it, change your password."],
+      "actions": ["learn-more"],
+      "sources": ["Bank security guidance"],
+      "messages": {
+        "level0": { "title": "This code keeps you safe", "text": "This looks like a normal one-time code. Never share it — no real bank or service will ask for it." }
+      }
+    }
+  ]
+}

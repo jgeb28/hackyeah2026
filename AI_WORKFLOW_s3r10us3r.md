@@ -9,6 +9,24 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 17:53:59
+**Developer:** s3r10us3r
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** designed the shipped **incident knowledge resource** (RAG/KB): one locale-scoped JSON, `entry/src/main/resources/rawfile/kb/en/incidents.json`, with **10 incidents**. Per case: `severity` (`CRITICAL|WARNING|INFO`, UI-only, independent of the engine `Verdict`), `escalation` (`L0|L1|L2`), `title`, `description`, `keywords`, `signals`, `explanation`, `remediation`, `actions`, `sources`, `cta`, and `messages{level0[,level1][,level2]}`.
+* **Matching:** LAYA is fed each case as `description + keywords` (no vector store in Phase 1); the matched case supplies severity + messages.
+* **Escalation model (decided):** **on-demand, L0 is the floor.** L0 shows immediately/offline; a tap on the case's `cta` escalates to **L1** (on-device LLM) or **L2** (cloud + grounded retrieval returning cited sources, consent required). 7/10 cases L0, 2/10 L1 (investment, romance), 1/10 L2 (misinformation).
+* **Implementation:** added the 10-case `incidents.json`; added `tests/unit/kb-incidents.test.ts` (schema, enums, level↔layer consistency) and `node:fs`/`node:path` test shims; rewrote the DESIGN §9 note and added **§18 Knowledge resource (schema & escalation)**; linked the resource from §17.
+* **Key Prompts:** "Let's do the RAG repo … 3 escalation layers: L0 prewritten, L1 local LLM, L2 cloud"; "keywords are not for vector search but FOR LAYA. Laya will see the cases as description + keywords"; "for L2 cases first show an L0 message and if clicked prompt the L2 model".
+
+#### 4. Review & Validation
+* **Validation evidence:** unit suite **20/20** (`tsc -p tsconfig.tests.json && node --test .test-build/tests/unit/`), including the 4 new KB tests; `incidents.json` validates with 10 incidents.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** misinformation at L2 is the weakest link — keep wording hedged ("may be unreliable"), require grounded retrieval + citations, and never assert falsehood.
+* **Lessons Learned:** a fixed required escalation level per case keeps most processing on-device and makes behaviour deterministic; L0 must always exist as the offline floor.
+
+---
 ## Update: 2026-10-03 17:24:42
 **Developer:** s3r10us3r
 
