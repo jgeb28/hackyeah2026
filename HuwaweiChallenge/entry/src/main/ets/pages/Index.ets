@@ -1,5 +1,6 @@
 // Guardian control screen: shows/hides the floating smart island.
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { router } from '@kit.ArkUI';
 import { IslandOverlay } from '../alert/IslandOverlay';
 
 const DOMAIN: number = 0x0A11;
@@ -46,6 +47,14 @@ struct Index {
         .height(44)
         .onClick(() => {
           this.toggleFloating();
+        })
+
+      Button('Open OCR demo (PP-OCRv4)')
+        .fontSize(15)
+        .width(240)
+        .height(44)
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/OcrDemo' });
         })
     }
     .width('100%')

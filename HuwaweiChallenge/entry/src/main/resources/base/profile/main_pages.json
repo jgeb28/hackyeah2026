@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/TriggerDemo",
     "pages/SentinelOverlay",
-    "pages/FloatingIsland"
+    "pages/FloatingIsland",
+    "pages/OcrDemo"
   ]
 }
