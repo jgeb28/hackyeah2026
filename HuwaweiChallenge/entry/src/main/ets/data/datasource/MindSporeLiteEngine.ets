@@ -1,10 +1,9 @@
-import { mindSporeLite } from '@kit.MindSporeLiteKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { GuardianSchema, SchemaQuestion } from '../../domain/model/GuardianSchema';
 import { LayaAnswer, LayaRequest, LayaResponse, QuestionType } from '../../domain/model/Decision';
+import { GuardianSchema, SchemaQuestion } from '../../domain/model/GuardianSchema';
 import { AssetLoader } from '../assets/AssetLoader';
 import { InferenceConfig } from '../config/InferenceConfig';
-import { BpeTokenizer } from './BpeTokenizer';
+import { InferenceResult, LayaEngineClient } from './LayaEngineClient';
 
 const DOMAIN: number = 0x0000;
 const TAG: string = 'LayaDevice';
@@ -28,137 +27,68 @@ interface LayaMetaDto {
 /**
  * Runs Laya locally with MindSpore Lite — no network.
  *
+ * The heavy work (loading the 1.7 GB `.ms` and `predict`) runs in `LayaWorker`
+ * so this class never blocks the UI thread. Here we only materialise the bundled
+ * model into the sandbox, hand the worker its inputs, and turn the returned
+ * logits into a Guardian verdict.
+ *
  * Graph contract (produced by `~/tmp/convert_laya.py`; see LAYA_INTEGRATION.md):
  *   input  "input_ids"      int32 [Q, max_len]   one Laya sequence per question
  *   input  "attention_mask" int32 [Q, max_len]   1 = real token, 0 = pad
  *   output "logits"         fp32  [1, Q, MAX_OPTIONS]  (temperature-scaled)
- *
- * The app builds each sequence exactly like Laya's `build_sequence`:
- *   prefix + state_tokens + [SEP] + pad     (prefixes come from meta.json)
- *
- * Acceleration: `target = ['nnrt','cpu']` asks for the NNRt backend (Kirin NPU)
- * and transparently falls back to CPU on the emulator.
  */
 export class MindSporeLiteEngine {
   private readonly config: InferenceConfig;
   private readonly assets: AssetLoader;
-  private readonly tokenizer: BpeTokenizer;
-  private model: mindSporeLite.Model | null = null;
+  private readonly filesDir: string;
+  private client: LayaEngineClient | null = null;
 
-  // From meta.json
-  private prefixes: number[][] = [];
-  private sepId: number = 50282;
-  private padId: number = 50283;
-  private maxLen: number = 512;
-
-  constructor(config: InferenceConfig, assets: AssetLoader) {
+  constructor(config: InferenceConfig, assets: AssetLoader, filesDir: string) {
     this.config = config;
     this.assets = assets;
-    this.tokenizer = new BpeTokenizer();
+    this.filesDir = filesDir;
   }
 
-  /** Load the tokenizer, meta and graph once; safe to call repeatedly. */
+  /** Materialise the model (once) and start the worker; safe to call repeatedly. */
   async ensureReady(): Promise<void> {
-    if (this.model !== null) {
+    if (this.client !== null) {
       return;
-    }
-
-    if (!this.tokenizer.isReady()) {
-      await this.tokenizer.load(this.assets, this.config.tokenizerPath);
     }
 
     const metaText: string = await this.assets.readText(this.config.metaPath);
     const meta: LayaMetaDto = JSON.parse(metaText) as LayaMetaDto;
-    this.prefixes = meta.prefixes !== undefined ? meta.prefixes : [];
-    this.sepId = meta.sep_id !== undefined ? meta.sep_id : this.sepId;
-    this.padId = meta.pad_id !== undefined ? meta.pad_id : this.padId;
-    this.maxLen = meta.max_len !== undefined ? meta.max_len : this.config.maxSeqLen;
-    if (this.prefixes.length === 0) {
+    if (meta.prefixes === undefined || meta.prefixes.length === 0) {
       throw new ModelNotInstalledError('laya_guardian_meta.json has no prefixes');
     }
 
-    let fd: number;
-    try {
-      fd = this.assets.openFd(this.config.msModelPath);
-    } catch (error) {
-      throw new ModelNotInstalledError(`Missing on-device model: ${this.config.msModelPath}`);
+    // MindSpore Lite cannot read a rawfile fd directly: `getRawFdSync` returns
+    // the *HAP* fd plus a non-zero `offset`, and `loadModelFromFd` reads from
+    // position 0 (=> "Invalid mslite model"). Materialise the asset once.
+    const modelPath: string = `${this.filesDir}/${this.config.msFileName}`;
+    if (!this.assets.fileExists(modelPath)) {
+      try {
+        const copied: number = await this.assets.copyRawfileTo(this.config.msModelPath, modelPath);
+        hilog.info(DOMAIN, TAG, 'Materialised model: %{public}d bytes -> %{public}s', copied, modelPath);
+      } catch (error) {
+        hilog.warn(DOMAIN, TAG, 'rawfile model copy failed: %{public}s', describe(error as Error));
+      }
+    } else {
+      hilog.info(DOMAIN, TAG, 'Using existing sandbox model: %{public}s', modelPath);
     }
 
-    this.model = await mindSporeLite.loadModelFromFd(fd, this.buildContext());
-    hilog.info(DOMAIN, TAG, 'Loaded %{public}s (%{public}s, maxLen=%{public}d)',
-      this.config.msModelPath, this.config.quantization.dtype, this.maxLen);
+    const tokenizerText: string = await this.assets.readText(this.config.tokenizerPath);
+    const client = new LayaEngineClient(modelPath, metaText, tokenizerText);
+    await client.start();
+    this.client = client;
+    hilog.info(DOMAIN, TAG, 'Engine ready (%{public}s) — inference runs in worker',
+      this.config.quantization.dtype);
   }
 
   async infer(request: LayaRequest): Promise<LayaResponse> {
     await this.ensureReady();
-    const model: mindSporeLite.Model = this.model as mindSporeLite.Model;
-    const inputs: mindSporeLite.MSTensor[] = model.getInputs();
-
-    const state: number[] = this.tokenizer.encode(request.state);
-    const q: number = this.prefixes.length;
-    const s: number = this.maxLen;
-    const ids: Int32Array = new Int32Array(q * s);
-    const mask: Int32Array = new Int32Array(q * s);
-
-    for (let qi = 0; qi < q; qi++) {
-      const prefix: number[] = this.prefixes[qi];
-      const room: number = s - prefix.length - 1;
-      const base: number = qi * s;
-      let pos: number = 0;
-      for (let i = 0; i < prefix.length; i++) {
-        ids[base + pos] = prefix[i];
-        mask[base + pos] = 1;
-        pos++;
-      }
-      const n: number = state.length < room ? state.length : room;
-      for (let i = 0; i < n; i++) {
-        ids[base + pos] = state[i];
-        mask[base + pos] = 1;
-        pos++;
-      }
-      ids[base + pos] = this.sepId;
-      mask[base + pos] = 1;
-      pos++;
-      for (; pos < s; pos++) {
-        ids[base + pos] = this.padId;
-        mask[base + pos] = 0;
-      }
-    }
-
-    inputs[0].setData(ids.buffer);
-    if (inputs.length > 1) {
-      inputs[1].setData(mask.buffer);
-    }
-
-    const started: number = Date.now();
-    const outputs: mindSporeLite.MSTensor[] = await model.predict(inputs);
-    const latency: number = Date.now() - started;
-
-    const logits: Float32Array = new Float32Array(outputs[0].getData());
-    return this.decode(logits, latency);
-  }
-
-  /**
-   * MindSpore Lite execution context: prefer NNRt (NPU), fall back to CPU.
-   *
-   * The shipped fp32 `.ms` was validated with fp32 CPU math, so we use
-   * `enforce_fp32` here to reproduce those exact results on the emulator.
-   */
-  buildContext(): mindSporeLite.Context {
-    const context: mindSporeLite.Context = {};
-    if (this.config.useNpu) {
-      context.target = ['nnrt', 'cpu'];
-      const nnrt: mindSporeLite.NNRTDevice = {};
-      context.nnrt = nnrt;
-    } else {
-      context.target = ['cpu'];
-    }
-
-    const cpu: mindSporeLite.CpuDevice = {};
-    cpu.threadNum = this.config.cpuThreads;
-    cpu.precisionMode = 'enforce_fp32';
-    context.cpu = cpu;
-    return context;
+    const client: LayaEngineClient = this.client as LayaEngineClient;
+    const result: InferenceResult = await client.inferLogits(request.state);
+    return this.decode(result.logits, result.latencyMs);
   }
 
   private decode(logits: Float32Array, latencyMs: number): LayaResponse {
@@ -227,4 +157,14 @@ function softmax(values: Float32Array, offset: number, count: number): number[] 
     out[i] = out[i] / sum;
   }
   return out;
+}
+
+/** Best-effort error description (ArkTS error objects stringify to `{}`). */
+function describe(error: Error): string {
+  if (error === undefined || error === null) {
+    return 'unknown error';
+  }
+  const message: string = error.message !== undefined ? error.message : String(error);
+  const stack: string = error.stack !== undefined ? error.stack : '';
+  return `${message} | ${stack}`;
 }

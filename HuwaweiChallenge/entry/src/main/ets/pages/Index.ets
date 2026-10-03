@@ -35,8 +35,9 @@ struct Index {
 
   aboutToAppear(): void {
     const context = getContext(this) as common.UIAbilityContext;
-    const container = new AppContainer(context.resourceManager);
+    const container = new AppContainer(context);
     this.container = container;
+    hilog.info(DOMAIN, TAG, 'filesDir (push the model here): %{public}s', context.filesDir);
 
     const acceleration: AccelerationInfo = container.acceleration();
     const hardware: string = acceleration.available ? acceleration.backend : 'CPU (no NPU)';
@@ -53,7 +54,10 @@ struct Index {
     try {
       this.analysis = await this.container.analyseMessage.run(SAMPLE_MESSAGE);
     } catch (error) {
-      hilog.error(DOMAIN, TAG, 'On-device analysis failed: %{public}s', JSON.stringify(error));
+      const err = error as Error;
+      hilog.error(DOMAIN, TAG, 'On-device analysis failed: %{public}s | %{public}s',
+        err.message !== undefined ? err.message : String(error),
+        err.stack !== undefined ? err.stack : '');
       const failed = new MessageAnalysis();
       failed.verdict = Verdict.UNKNOWN;
       failed.summary = 'The on-device model is unavailable. Check the bundled model assets.';

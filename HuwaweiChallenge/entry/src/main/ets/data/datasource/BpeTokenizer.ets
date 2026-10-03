@@ -13,9 +13,28 @@ import { AssetLoader } from '../assets/AssetLoader';
  * `MindSporeLiteEngine` validates ids against the vocabulary it loaded.
  */
 
-/** GPT-2 pre-tokenization pattern (ByteLevel pre_tokenizer with use_regex). */
-const PRE_TOKENIZER: RegExp =
-  /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+/**
+ * GPT-2 pre-tokenization pattern (ByteLevel pre_tokenizer with use_regex).
+ *
+ * ArkTS rejects regex literals (`arkts-no-regexp-literals`), so this MUST be
+ * built with `RegExp()`. Some ArkTS engines also lack Unicode property escapes
+ * (`\p{L}`/`\p{N}`); if so we fall back to ASCII classes, which is identical for
+ * English input (the demo/model domain). Non-ASCII letters then tokenize as
+ * "other", a documented deviation.
+ */
+function buildPreTokenizer(): RegExp {
+  try {
+    return new RegExp(
+      "'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",
+      'gu');
+  } catch (error) {
+    return new RegExp(
+      "'s|'t|'re|'ve|'m|'ll|'d| ?[A-Za-z]+| ?[0-9]+| ?[^\\sA-Za-z0-9]+|\\s+(?!\\S)|\\s+",
+      'g');
+  }
+}
+
+const PRE_TOKENIZER: RegExp = buildPreTokenizer();
 
 interface TokenizerModelDto {
   vocab?: Record<string, number>;
@@ -49,6 +68,11 @@ export class BpeTokenizer {
 
   async load(assets: AssetLoader, path: string): Promise<void> {
     const json: string = await assets.readText(path);
+    this.loadFromJson(json);
+  }
+
+  /** Build the tokenizer from the Hugging Face `tokenizer.json` text. */
+  loadFromJson(json: string): void {
     const dto: TokenizerDto = JSON.parse(json) as TokenizerDto;
 
     const model: TokenizerModelDto | undefined = dto.model;

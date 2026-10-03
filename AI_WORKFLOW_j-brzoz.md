@@ -6,6 +6,161 @@ Per-developer, AI-assisted development log (rules: [`AGENTS.md`](./AGENTS.md) an
 this developer's entries.
 
 ---
+## Update: 2026-10-03 23:00:06
+**Developer:** j-brzoz
+
+#### Model artefact & how the app loads it (reproducibility)
+* **Artefact:** `model/laya_guardian_fp32.ms` — 1,686,318,032 bytes, MINDIR_LITE
+  (magic `28 00 00 00 "MSL2"`). **Git-ignored / not in the repo** (GitHub rejects >100 MB
+  files). A zip is at `model/laya_guardian_fp32.zip` (~1.69 GB, store mode).
+* **Bundled assets (in git):** `entry/src/main/resources/rawfile/laya_guardian_meta.json`
+  (prefixes, `sep_id=50282`, `pad_id=50283`, `max_len=512`) and `tokenizer.json`.
+
+**Loading flow (each run):**
+1. `AppContainer` → `DecisionRepositoryImpl` → `MindSporeLiteEngine.ensureReady()`.
+2. Engine sets `modelPath = ${context.filesDir}/laya_guardian_fp32.ms`.
+3. If missing, `RawfileAssetLoader.copyRawfileTo()` materialises it from rawfile **honouring
+   `getRawFdSync`'s `offset`/`length`** (the fd is the whole HAP; `loadModelFromFd` reads from 0 →
+   "Invalid mslite model"). Streams 8 MiB chunks async, checks the `MSL2` magic, publishes
+   atomically (`*.part` → rename).
+4. Engine starts `LayaEngineClient` → **`LayaWorker`** (ArkTS Worker). The worker calls
+   `mindSporeLite.loadModelFromFile(modelPath, { target:['cpu'], threadNum:4,
+   precisionMode:'enforce_fp32' })` and serves `predict` per tap; the UI thread only decodes logits.
+   (The Worker prevents the THREAD_BLOCK_6S kill caused by a synchronous 1.7 GB load.)
+
+**Provisioning a fresh device (e.g. a new laptop):**
+```powershell
+git fetch && git checkout feat/laya-ondevice
+# obtain the .ms (unzip model/laya_guardian_fp32.zip), then bundle it for the first install:
+copy <path>\laya_guardian_fp32.ms HuwaweiChallenge\entry\src\main\resources\rawfile\
+# DevEco: Rebuild -> Run; first tap materialises it into filesDir and the worker loads it.
+# Afterwards delete it from rawfile\ for ~3.5 MB HAPs (the sandbox copy survives app updates).
+```
+* Emulator requirements: API 23, x86_64, **RAM ≥ 6 GB** (4 GB swap-thrashes on the 1.7 GB fp32
+  model; observed `VmSwap 1.23 GB`), data partition ≥ 8 GB.
+* Caveat: a full `bm uninstall` wipes `filesDir` → re-bundle the `.ms` for one install.
+
+---
+## Update: 2026-10-03 22:07:24
+**Developer:** j-brzoz
+
+#### 3. Development Workflow & Prompts
+* **On-device perf (fp32):** worker load succeeded (`model loaded (prefixes=3 maxLen=512)` after
+  ~60 s) with the UI responsive — the Worker fix worked. But `predict` exceeded 11 min: the guest was
+  **swap-thrashing** (`free -m`: 3894/3931 MB used; `VmSwap: 1.23 GB`; RSS ~1.7 GB). Root cause: the
+  1.7 GB fp32 model does not fit alongside the OS in a **4 GB** emulator.
+* **Mitigations applied:** raised emulator RAM `4096→6144` in
+  `%LOCALAPPDATA%/Huawei/Emulator/deployed/Pura 90v2/{config.ini,hardware-qemu.ini}` and `lists.json`;
+  set worker `cpu.threadNum = 4`. Next run to measure `infer ok … latency`.
+* **Decision:** continue on a faster host; move the source via a git branch and copy the 1.69 GB `.ms`
+  out-of-band (git-ignored, GitHub rejects >100 MB).
+
+#### 4. Review & Validation
+* **Evidence:** thread/CPU sampling (`/proc/<pid>/stat`, `/proc/<pid>/task/.../stat`) showed CPU busy
+  but `predict` stuck in swap; force-stopped the app to stop thrashing.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** a 421 M-param fp32 model (~1.7 GB) is too large for a 4 GB guest; either give
+  the emulator ≥6 GB or ship a smaller artefact (int8 413 MB — still unproven on the x86 MSP runtime).
+  Measure guest `free -m`/`VmSwap` before blaming code.
+
+---
+## Update: 2026-10-03 21:42:58
+**Developer:** j-brzoz
+
+#### 3. Development Workflow & Prompts
+* **Compile fixes:** `ThreadWorkerGlobalScope` is a top-level `@kit.ArkTS` type (not `worker.*`);
+  cast `Float32Array.buffer as ArrayBuffer` (the `arkts-no-untyped-obj-literals` error was really an
+  `ArrayBufferLike`→`ArrayBuffer` mismatch).
+* **Install failed again** (`9568288 insufficient disk memory`): bundling the 1.7 GB `.ms` needs
+  ~3.4 GB peak *and* the sandbox already holds a 1.69 GB copy. **Externalised the model again:**
+  moved `laya_guardian_fp32.ms` out of `rawfile/` into `model/` (git-ignored); `rawfile/` is now only
+  meta+tokenizer (~3.5 MB) so the HAP installs in seconds. `ensureReady()` skips the copy when the
+  sandbox model already exists.
+
+#### 4. Review & Validation
+* **Evidence:** on-device sandbox confirmed
+  `/data/app/el2/100/base/com.example.huwaweichallenge/haps/entry/files/laya_guardian_fp32.ms`
+  (1686318032 bytes); `/data` 11 GB, 6.8 GB free. Awaiting small-HAP run.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** don't ship a multi-GB model inside the HAP on this emulator; materialise once
+  into the sandbox and keep the HAP small. An app *update* preserves the sandbox, but a full
+  uninstall wipes it (re-provision by temporarily rebundling the `.ms`).
+
+---
+## Update: 2026-10-03 21:34:43
+**Developer:** j-brzoz
+
+#### 2. AI Development Tools Used
+* OpenCode agent running `deepseek/deepseek-flash`; diagnostics via Windows `hdc.exe` (`hilog`,
+  `cat /data/log/faultlog/faultlogger/*.log`).
+
+#### 3. Development Workflow & Prompts
+* **Diagnosis (appfreeze):** the rawfile-offset fix worked — `AssetLoader: copied 1686318032 bytes`
+  into `filesDir`; then the app was killed with `Reason: THREAD_BLOCK_6S` (`processExit:1`). Freeze
+  dump showed the **main thread** (`stime=452`) stuck for >6 s right after `Using existing sandbox
+  model` — i.e. `mindSporeLite.loadModelFromFile` parsing the 1.7 GB model **synchronously on the UI
+  thread** tripped the HarmonyOS watchdog.
+* **Fix — offload to an ArkTS Worker:** new `ets/workers/LayaWorker.ets` loads tokenizer/meta/model
+  and runs `predict` on a worker thread; `LayaEngineClient` (UI thread) only shuttles messages and
+  returns raw logits; `MindSporeLiteEngine` now just materialises the model + decodes logits.
+  Registered the worker in `entry/build-profile.json5` → `buildOption.sourceOption.workers`.
+
+#### 4. Review & Validation
+* **Evidence:** faultlog (`/data/log/faultlog/faultlogger/appfreeze-…782.log`) confirms reason and
+  kill; copy size/magic verified on-device. Worker path validated against SDK `@ohos.worker.d.ts`.
+* **Not yet validated:** build + on-device run with the worker (next step).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** on HarmonyOS, any synchronous call >6 s on the UI thread (e.g. loading a
+  1.7 GB MindSpore Lite model) triggers `THREAD_BLOCK_6S` and the process is killed; long model
+  work must run in a Worker/TaskPool. Manually-created Workers must be listed in
+  `build-profile.json5` `sourceOption.workers`.
+
+---
+## Update: 2026-10-03 21:23:09
+**Developer:** j-brzoz
+
+#### 2. AI Development Tools Used
+* **Agent/Model:** OpenCode agent running `deepseek/deepseek-flash`.
+* **Diagnostics:** Windows `hdc.exe` invoked from WSL (`hilog`, `df`, `pidof`, `cat /proc/<pid>/maps`);
+  eGPU logs under `%LOCALAPPDATA%/Huawei/Emulator/deployed/Pura 90v2/Log`.
+
+#### 3. Development Workflow & Prompts
+* **Debugging on emulator:** app now runs; popup showed `UNKNOWN`. `hilog` (pid 6238) revealed the
+  true failure — **not** the tokenizer: `MS_LITE: LoadModelByBuff# Invalid mslite model.` /
+  `Build# Init session failed`.
+* **Root cause:** `resourceManager.getRawFdSync` returns `{fd, offset, length}` where `fd` is the
+  **whole HAP** and the asset starts at a non-zero `offset`. `MindSporeLiteEngine` passed `fd` to
+  `loadModelFromFd`, which reads from position 0 (the HAP zip header) → invalid model. Verified the
+  built HAP stores the `.ms` uncompressed at `header_offset=106825` (zip `method=0`).
+* **Fixes:**
+  1. `AssetLoader.copyRawfileTo()`: sequentially seek to `offset`, stream `length` bytes into
+     `filesDir/laya_guardian_fp32.ms.part` (async, 8 MiB chunks, magic-byte `MSL2` check,
+     atomic `rename`); `MindSporeLiteEngine` then `loadModelFromFile()`.
+  2. `AppContainer` probes NNRt once and sets `config.useNpu` from it (emulator is CPU-only, so the
+     engine no longer requests an unavailable NNRt delegate).
+  3. `BpeTokenizer`: replaced the regex **literal** with `new RegExp(...)` (`arkts-no-regexp-literals`)
+     plus an ASCII fallback if `\p{L}` is unsupported; fixed `arkts-limited-throw` (rethrow `Error`).
+  4. Added stage logging (`inputs/encode/setData/predict`) + real `error.message` (ArkTS errors
+     `JSON.stringify` to `{}`).
+
+#### 4. Review & Validation
+* **Evidence:** `MS_LITE` native logs confirm the runtime is present and the model loads; the
+  failure was the fd-offset bug. Awaiting rebuild to confirm `predict ok` and a real verdict.
+* **Environment:** DevEco HarmonyOS emulator `Pura 90v2` (12 GB data, 4 GB RAM), app sandbox
+  `/data/storage/el2/base/haps/entry/files` (unprivileged `hdc`, so no direct push).
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful approaches:** int8 weight-quant `.ms` (413 MB) **fails to load** on the x86 MSP
+  runtime (`NNACL matmul prepare failed`), so fp32 remains the only validated artefact. Earlier
+  "Emulator Freeze / Guest No Response" was host RAM starvation: 14 GB host + `.wslconfig
+  memory=11GB` + 4 GB emulator → guest `hdcd` hung in `__alloc_pages`; lowered to `memory=4GB`.
+* **Lessons Learned:** never feed a rawfile `getRawFdSync` `.fd` straight into `loadModelFromFd`;
+  always honour `offset`/`length` (or copy to a real path). Log `error.message`, not `JSON.stringify`.
+
+---
 ## Update: 2026-10-03 18:35:34
 **Developer:** j-brzoz
 

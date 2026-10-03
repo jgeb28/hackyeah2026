@@ -25,8 +25,10 @@ export interface ModelQuantization {
 
 export class InferenceConfig {
   // --- On-device artefacts (entry/src/main/resources/rawfile/) --------------
-  /** Converted MindSpore Lite graph with Guardian's fixed decision head. */
+  /** Converted MindSpore Lite graph bundled in rawfile (optional). */
   msModelPath: string = 'laya_guardian_fp32.ms';
+  /** Model file name (same file) in the app sandbox `filesDir` — used for large models. */
+  msFileName: string = 'laya_guardian_fp32.ms';
   /** Converter metadata: question prefixes, SEP/PAD ids, max_len. */
   metaPath: string = 'laya_guardian_meta.json';
   /** Hugging Face fast-tokenizer definition (ByteLevel BPE), copied verbatim. */

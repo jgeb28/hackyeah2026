@@ -34,11 +34,10 @@ signatures/
 .vscode/
 *.iml
 
-# --- npm config (may contain registry auth tokens) ---
-.npmrc
-**/.npmrc
-
-# --- Large model artefacts (built separately by the converter; never commit) ---
+# --- Large model artefacts (built separately; never commit) ---
 *.ms
 *.onnx
 *.mindir
+.npmrc
+**/.npmrc
+.vscode/

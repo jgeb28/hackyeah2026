@@ -15,8 +15,8 @@ import { MindSporeLiteEngine } from '../datasource/MindSporeLiteEngine';
 export class DecisionRepositoryImpl implements DecisionRepository {
   private readonly engine: MindSporeLiteEngine;
 
-  constructor(config: InferenceConfig, assets: AssetLoader) {
-    this.engine = new MindSporeLiteEngine(config, assets);
+  constructor(config: InferenceConfig, assets: AssetLoader, filesDir: string) {
+    this.engine = new MindSporeLiteEngine(config, assets, filesDir);
   }
 
   async predict(request: LayaRequest): Promise<LayaResponse> {
