@@ -14,9 +14,12 @@ export interface ReportEmitter {
 /** Default emitter: a common event delivered to the Guardian engine. */
 export class CommonEventEmitter implements ReportEmitter {
   emit(event: string, payload: string, bundleName: string): void {
+    // NOTE: CommonEventPublishData.bundleName targets a *subscriber* bundle, so
+    // it must NOT be set to the publisher's name (that would drop the event).
+    // Provenance travels inside the payload; we also expose it as a parameter.
     const options: commonEventManager.CommonEventPublishData = {
-      bundleName: bundleName,
-      data: payload
+      data: payload,
+      parameters: { publisherBundleName: bundleName }
     };
     commonEventManager.publish(event, options, (err: Object) => {
       if (err) {

@@ -1,8 +1,10 @@
 // NotificationService — posts local alerts; implements TriggerAlertSink (DESIGN §10).
 import { notificationManager } from '@kit.NotificationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { ScanResult, TriggerSource, Verdict } from '../trigger/TriggerTypes';
+import { ScanResult, TriggerSource } from '../trigger/TriggerTypes';
 import { TriggerAlertSink } from '../trigger/IngestSource';
+import { AlertOverlay } from './AlertOverlay';
+import { AlertTheme } from './AlertTheme';
 
 const DOMAIN: number = 0x0A11;
 const TAG: string = 'GuardianNotify';
@@ -24,10 +26,19 @@ export class NotificationService implements TriggerAlertSink {
   /** Post the user-facing alert for a non-SAFE verdict. */
   alert(result: ScanResult, sourceText: string, source: TriggerSource): void {
     const via: string = `${source}`;
-    const isCritical: boolean = result.verdict === Verdict.CRITICAL;
-    const title: string = isCritical ? 'Potential scam detected' : 'Suspicious message';
+    const title: string = result.severity !== undefined
+      ? AlertTheme.titleForCategory(result.category)
+      : AlertTheme.titleFor(result.verdict);
+    const color: string = result.severity !== undefined
+      ? AlertTheme.colorForSeverity(result.severity)
+      : AlertTheme.colorFor(result.verdict);
     const body: string = sourceText.length > 140 ? `${sourceText.substring(0, 140)}\u2026` : sourceText;
     const signals: string = result.signals.length > 0 ? result.signals.join(' \u00B7 ') : 'Guardian';
+
+    // Primary alert: our floating overlay on top of other apps (works in background).
+    AlertOverlay.show(title, body, color).catch((e: Error) => {
+      hilog.warn(DOMAIN, TAG, `overlay failed: ${e.message}`);
+    });
 
     const request: notificationManager.NotificationRequest = {
       id: this.nextId++,

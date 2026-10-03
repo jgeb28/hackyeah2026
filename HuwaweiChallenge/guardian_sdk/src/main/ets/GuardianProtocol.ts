@@ -16,6 +16,10 @@ export interface GuardianReport {
   messageId?: string;
   /** Optional epoch millis; the receiver fills `Date.now()` when absent. */
   timestampMs?: number;
+  /** Optional incident category (scam | misinformation | harassment | notice). */
+  category?: string;
+  /** Optional incident severity (CRITICAL | WARNING | INFO). */
+  severity?: string;
 }
 
 /** JSON shape actually put on the wire. */
@@ -25,6 +29,8 @@ interface WireReport {
   text?: string;
   messageId?: string;
   timestampMs?: number;
+  category?: string;
+  severity?: string;
 }
 
 /** Serialize a report for the common event `data` field. */
@@ -39,6 +45,12 @@ export function encodeReport(report: GuardianReport): string {
   }
   if (report.timestampMs !== undefined) {
     wire.timestampMs = report.timestampMs;
+  }
+  if (report.category !== undefined) {
+    wire.category = report.category;
+  }
+  if (report.severity !== undefined) {
+    wire.severity = report.severity;
   }
   return JSON.stringify(wire);
 }
@@ -70,6 +82,12 @@ export function decodeReport(raw: string): GuardianReport | null {
     }
     if (wire.timestampMs !== undefined) {
       report.timestampMs = wire.timestampMs;
+    }
+    if (wire.category !== undefined) {
+      report.category = wire.category;
+    }
+    if (wire.severity !== undefined) {
+      report.severity = wire.severity;
     }
     return report;
   } catch (e) {

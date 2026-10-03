@@ -7,6 +7,9 @@ export interface ScanJob {
   text: string;
   messageId?: string;
   timestampMs: number;
+  /** Incident category/severity supplied by the report, when present. */
+  category?: string;
+  severity?: string;
 }
 
 /** An ingestion strategy. */

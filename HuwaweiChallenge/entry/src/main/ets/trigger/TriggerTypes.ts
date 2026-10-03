@@ -28,6 +28,8 @@ export interface ScanResult {
   category: string;
   confidence: number;
   signals: string[];
+  /** Incident severity from the knowledge base (CRITICAL | WARNING | INFO), when reported. */
+  severity?: string;
 }
 
 /** A trigger that fired: the rendered text plus its origin. */
