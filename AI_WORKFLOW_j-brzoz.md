@@ -6,6 +6,41 @@ Per-developer, AI-assisted development log (rules: [`AGENTS.md`](./AGENTS.md) an
 this developer's entries.
 
 ---
+## Update: 2026-10-03 23:00:06
+**Developer:** j-brzoz
+
+#### Model artefact & how the app loads it (reproducibility)
+* **Artefact:** `model/laya_guardian_fp32.ms` — 1,686,318,032 bytes, MINDIR_LITE
+  (magic `28 00 00 00 "MSL2"`). **Git-ignored / not in the repo** (GitHub rejects >100 MB
+  files). A zip is at `model/laya_guardian_fp32.zip` (~1.69 GB, store mode).
+* **Bundled assets (in git):** `entry/src/main/resources/rawfile/laya_guardian_meta.json`
+  (prefixes, `sep_id=50282`, `pad_id=50283`, `max_len=512`) and `tokenizer.json`.
+
+**Loading flow (each run):**
+1. `AppContainer` → `DecisionRepositoryImpl` → `MindSporeLiteEngine.ensureReady()`.
+2. Engine sets `modelPath = ${context.filesDir}/laya_guardian_fp32.ms`.
+3. If missing, `RawfileAssetLoader.copyRawfileTo()` materialises it from rawfile **honouring
+   `getRawFdSync`'s `offset`/`length`** (the fd is the whole HAP; `loadModelFromFd` reads from 0 →
+   "Invalid mslite model"). Streams 8 MiB chunks async, checks the `MSL2` magic, publishes
+   atomically (`*.part` → rename).
+4. Engine starts `LayaEngineClient` → **`LayaWorker`** (ArkTS Worker). The worker calls
+   `mindSporeLite.loadModelFromFile(modelPath, { target:['cpu'], threadNum:4,
+   precisionMode:'enforce_fp32' })` and serves `predict` per tap; the UI thread only decodes logits.
+   (The Worker prevents the THREAD_BLOCK_6S kill caused by a synchronous 1.7 GB load.)
+
+**Provisioning a fresh device (e.g. a new laptop):**
+```powershell
+git fetch && git checkout feat/laya-ondevice
+# obtain the .ms (unzip model/laya_guardian_fp32.zip), then bundle it for the first install:
+copy <path>\laya_guardian_fp32.ms HuwaweiChallenge\entry\src\main\resources\rawfile\
+# DevEco: Rebuild -> Run; first tap materialises it into filesDir and the worker loads it.
+# Afterwards delete it from rawfile\ for ~3.5 MB HAPs (the sandbox copy survives app updates).
+```
+* Emulator requirements: API 23, x86_64, **RAM ≥ 6 GB** (4 GB swap-thrashes on the 1.7 GB fp32
+  model; observed `VmSwap 1.23 GB`), data partition ≥ 8 GB.
+* Caveat: a full `bm uninstall` wipes `filesDir` → re-bundle the `.ms` for one install.
+
+---
 ## Update: 2026-10-03 22:07:24
 **Developer:** j-brzoz
 
