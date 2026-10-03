@@ -8,12 +8,6 @@
 > **Challenge areas:** *Human-Centric Technology* (accessibility, digital
 > wellbeing) + *Intelligent Experiences* (on-device AI).
 
-This document supersedes the exploratory `init_design.md` and resolves the
-inaccuracies found there. The single most important correction: a normal
-third-party HAP **cannot** silently screenshot other apps, draw overlays over
-them, or use the Smart Island. The design is therefore built on the
-**Accessibility ExtensionAbility**, which *is* available to third parties.
-
 ---
 
 ## 1. Overview
