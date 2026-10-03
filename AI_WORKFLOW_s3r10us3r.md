@@ -9,6 +9,16 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 17:23:37
+**Developer:** s3r10us3r
+
+#### 3. Development Workflow & Prompts
+* **Policy change (reviewer):** added **§9 Feature, comment & script hygiene** to the root `AGENTS.md`: (1) every feature/fix must be built **and tested with the result stated** before a PR is opened; (2) comments must be **short** (one-line headers, no dead code, no per-declaration narration); (3) **no shell/Python/helper scripts** committed unless directly required for the agent to run — machine/emulator/build helpers stay local + git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** the committed repo is project code + tests + docs only; keep tooling scripts local.
+
+---
 ## Update: 2026-10-03 17:20:14
 **Developer:** s3r10us3r
 
