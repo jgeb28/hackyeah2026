@@ -1,7 +1,4 @@
-/**
- * GuardianProtocol — the wire contract between a host app (via GuardianClient)
- * and the Guardian engine. Platform-free so it is unit-testable on Node.
- */
+// GuardianProtocol — wire contract between GuardianClient and the engine.
 
 /** Common-event name a host app publishes when it renders message text. */
 export const GUARDIAN_MESSAGE_EVENT: string = 'com.hackyeah.guardian.MESSAGE_RENDERED';

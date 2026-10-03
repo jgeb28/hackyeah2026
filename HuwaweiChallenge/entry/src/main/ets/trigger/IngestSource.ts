@@ -1,8 +1,4 @@
-/**
- * IngestSource — the seam between "how text arrives" and the detection engine
- * (DESIGN.md §7). Shipping implementations: `InAppSdkSource` (Phase 1) and,
- * later, `ScreenOcrSource` (Phase 2) / system-access sources (§16).
- */
+// IngestSource / ScanJob / TriggerAlertSink — text-in, alerts-out seams (§7).
 import { ScanResult, TriggerSource } from './TriggerTypes';
 
 /** A unit of ingested text ready for scanning. */

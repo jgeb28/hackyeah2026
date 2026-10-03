@@ -1,14 +1,4 @@
-/**
- * TriggerEngine — the "when do we scan" + "what is the verdict" core.
- *
- * Ingestion is pluggable (`IngestSource`, DESIGN.md §7): the SDK source
- * (`InAppSdkSource`) feeds it today; accessibility / OCR / system sources feed
- * the same `onTextRendered` seam. Policy (dedupe/budget) lives in the
- * platform-free `ScanPolicy`; classification in `Classify`.
- *
- * Injecting a policy + alert sink keeps the engine unit- and integration-
- * testable without touching notifications.
- */
+// TriggerEngine — scan policy + classify + alert dispatch (DESIGN §7/§10).
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { ScanRequest, ScanResult, TriggerSource, Verdict } from './TriggerTypes';
 import { classifyText } from './Classify';

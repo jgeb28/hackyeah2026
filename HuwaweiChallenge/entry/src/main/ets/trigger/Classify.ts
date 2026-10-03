@@ -1,8 +1,4 @@
-/**
- * classifyText — deterministic scam/misinformation rules over the label space
- * (DESIGN.md §7 step 1). Model-agnostic: LAYA (.ms) drops in behind the same
- * `classifyText(text) -> ScanResult` seam later.
- */
+// classifyText — deterministic scam rules; LAYA drops in at the same seam.
 import { ScanResult, Verdict } from './TriggerTypes';
 
 /** Pure classifier. No platform imports, so it is unit-testable on Node. */

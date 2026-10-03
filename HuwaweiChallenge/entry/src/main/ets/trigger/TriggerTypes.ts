@@ -1,7 +1,4 @@
-/**
- * Trigger types — shared by the SDK ingest and the classifier.
- * Platform-free so the pure logic is unit-testable off-device (tests/unit).
- */
+// Shared trigger types (platform-free, unit-testable).
 
 /** Verdict levels (DESIGN.md §2). */
 export enum Verdict {

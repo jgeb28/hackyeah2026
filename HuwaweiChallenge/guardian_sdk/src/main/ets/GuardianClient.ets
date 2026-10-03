@@ -1,11 +1,4 @@
-/**
- * GuardianClient — the host-app entry point of the Guardian SDK.
- *
- * `report()` serializes a `GuardianReport` and hands it to an injectable
- * `ReportEmitter`. The default emitter publishes the SDK common event, which the
- * Guardian engine listens for (`InAppSdkSource`). Injecting an emitter keeps the
- * client testable without touching the event subsystem.
- */
+// GuardianClient — host-app entry point of the SDK (DESIGN §7.1).
 import { commonEventManager } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { GUARDIAN_MESSAGE_EVENT, GuardianReport, encodeReport } from './GuardianProtocol';

@@ -1,11 +1,4 @@
-/**
- * SdkTriggerTest — integration test for the SDK trigger path.
- *
- * Exercises the real contract: a host app encodes a report via the Guardian SDK
- * protocol, the payload is decoded the same way `InAppSdkSource` decodes it, and
- * the decoded text is fed to a real `TriggerEngine`. A fake `TriggerAlertSink`
- * captures the alert without touching the notification subsystem.
- */
+// SdkTriggerTest — integration test: SDK encode -> decode -> TriggerEngine.
 import { describe, it, expect } from '@ohos/hypium';
 import { encodeReport, decodeReport, GuardianReport } from '@hackyeah/guardian_sdk';
 import { TriggerEngine } from '../../../main/ets/trigger/TriggerEngine';

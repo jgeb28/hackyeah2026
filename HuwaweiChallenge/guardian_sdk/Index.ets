@@ -1,12 +1,4 @@
-/**
- * Guardian SDK — the in-app trigger contract for the Guardian safety copilot.
- *
- * A host app links this HAR and calls `GuardianClient.report(...)` whenever it
- * renders message text. The report travels as a common event to the Guardian
- * engine, which classifies it on-device (DESIGN.md §7.1, Phase 1).
- *
- * Platform-free pieces (`GuardianProtocol`) are unit-tested off-device.
- */
+// Guardian SDK — host apps report rendered text via GuardianClient (DESIGN §7.1).
 export { GuardianClient, CommonEventEmitter } from './src/main/ets/GuardianClient';
 export type { ReportEmitter } from './src/main/ets/GuardianClient';
 export {

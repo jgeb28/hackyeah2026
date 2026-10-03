@@ -1,14 +1,4 @@
-/**
- * NotificationService — the primary AlertSurface (DESIGN.md §10).
- *
- * Implements `TriggerAlertSink`: when the engine reaches a non-SAFE verdict the
- * service posts a local notification (an on-device "push" to the user) carrying
- * the verdict and the human-readable signals. Tapping it (later) opens the
- * Guardian overlay.
- *
- * `notificationManager.publish()` needs no restricted permission; the user must
- * have allowed notifications for the app (otherwise publish errors).
- */
+// NotificationService — posts local alerts; implements TriggerAlertSink (DESIGN §10).
 import { notificationManager } from '@kit.NotificationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { ScanResult, TriggerSource, Verdict } from '../trigger/TriggerTypes';

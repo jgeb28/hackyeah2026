@@ -9,6 +9,20 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 17:17:17
+**Developer:** s3r10us3r
+
+#### 3. Development Workflow & Prompts
+* **Follow-up (review feedback):** reviewer flagged PR files (e.g. `GuardianClient.ets`, `SdkTrigger.test.ets`) as "only comments". Verified against `origin` that they contain real code (31/49 and 63/82 code lines; a repo-wide comment-stripping scan found **0** comment-only files) — the look was a viewer/syntax artifact. Per the reviewer's choice, **trimmed the doc headers** of all 11 session-authored source files to a single `//` line each (inline API notes kept); code is now visually dominant.
+* **Run tooling:** committed the local `run-openharmony-app` skill (`SKILL.md` + `scripts/`: windowed emulator, VNC capture, emulator manager) so the local build/run loop is reproducible in-repo.
+
+#### 4. Review & Validation
+* **Validation evidence:** after trimming, `oniro-app` builds the app + `ohosTest` HAP; unit `tests/run.sh` 16/16; on-device `tests/run-integration.sh` 3/3 (`Tests run: 3, Failure: 0, Error: 0, Pass: 3`).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** `.ets` files are rendered as plain text by some viewers/highlighters, so a long doc-comment header can look like it swallows the whole file; keep file headers to one line and put detail inline.
+
+---
 ## Update: 2026-10-03 17:03:29
 **Developer:** s3r10us3r
 

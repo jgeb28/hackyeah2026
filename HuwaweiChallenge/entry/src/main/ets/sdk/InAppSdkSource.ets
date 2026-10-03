@@ -1,11 +1,4 @@
-/**
- * InAppSdkSource — the Guardian side of the SDK trigger (DESIGN.md §7.1).
- *
- * Host apps publish reports via `GuardianClient` (`@hackyeah/guardian_sdk`) on
- * the `GUARDIAN_MESSAGE_EVENT` common event; this source subscribes, decodes the
- * payload and emits a `ScanJob`. It is one `IngestSource` among the engine's
- * pluggable ingestion strategies.
- */
+// InAppSdkSource — subscribe to SDK reports and emit ScanJobs (DESIGN §7.1).
 import { commonEventManager } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { GUARDIAN_MESSAGE_EVENT, GuardianReport, decodeReport } from '@hackyeah/guardian_sdk';

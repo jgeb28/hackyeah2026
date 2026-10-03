@@ -1,8 +1,4 @@
-/**
- * ScanPolicy — the "when do we scan" budget (DESIGN.md §7.4):
- * unchanged-skip + short dedupe window + a rolling per-minute cap.
- * Platform-free and clock-injectable so it is unit-testable off-device.
- */
+// Scan budget: unchanged-skip + dedupe window + per-minute cap (DESIGN §7.4).
 
 export interface ScanPolicyConfig {
   /** Ignore a scan if the same text was scanned within this window. */
