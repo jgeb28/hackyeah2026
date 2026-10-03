@@ -32,3 +32,11 @@ signatures/
 .DS_Store
 .idea/
 *.iml
+
+# --- Large model artefacts (built separately; never commit) ---
+*.ms
+*.onnx
+*.mindir
+.npmrc
+**/.npmrc
+.vscode/
