@@ -6,30 +6,42 @@ repository. Read it before doing any work and follow it for the entire session.
 
 ---
 
-## 0. THE PRIME DIRECTIVE — Maintain `AI_WORKFLOW.md`
+## 0. THE PRIME DIRECTIVE — Maintain your `AI_WORKFLOW_<git-username>.md`
 
-> **Every agent MUST work on [`AI_WORKFLOW.md`](./AI_WORKFLOW.md).**
+> **Every agent MUST keep its own per-developer workflow file up to date.**
 
 This is a mandatory hackathon deliverable. The challenge requires any team that
-uses AI tools during development **and/or** ships an AI feature to publish an
-`AI_WORKFLOW.md` file. Because this entire project is built with AI agents, that
+uses AI tools during development **and/or** ships an AI feature to publish an AI
+workflow document. Because this entire project is built with AI agents, that
 means **you**.
+
+**AI_WORKFLOW rules** (authoritative source:
+[`HuwaweiChallenge/AGENTS.md`](./HuwaweiChallenge/AGENTS.md)):
+
+- **File name:** `AI_WORKFLOW_<git-username>.md`, derived from
+  `git config user.name` — lowercased, spaces → hyphens
+  (e.g. `AI_WORKFLOW_jane-doe.md`). Do not edit another developer's file.
+- **Newest first:** each update is **prepended** at the top of the file.
+- **Timestamp every update:** `## Update: [YYYY-MM-DD HH:MM:SS]` immediately
+  followed by `**Developer:** <git-username>`.
+- **Use the update template in §4.**
+- **Be concise:** highlights only — no transcripts, no repetition.
+- **No secrets, credentials, or PII**, ever.
 
 Concretely, every agent must:
 
-1. **Before starting a task** — read `AI_WORKFLOW.md` to understand what has
-   already been recorded and avoid contradicting or duplicating it.
+1. **Before starting a task** — read its per-developer file to understand what
+   has already been recorded and avoid contradicting or duplicating it.
 2. **During the task** — note the model(s)/service(s) used, the prompts and
    instructions that mattered, the approach taken, and anything that failed.
 3. **After completing every significant task** (feature, bug fix, refactor,
-   architecture decision, test run, failed experiment) — **append a new dated
-   entry** to `AI_WORKFLOW.md` using the entry template in §4.
+   architecture decision, test run, failed experiment) — **prepend** a new
+   timestamped update using the §4 template.
 4. **Before ending a session or opening a pull request** — run the pre-flight
-   checklist in §6 and confirm `AI_WORKFLOW.md` is current.
+   checklist in §6 and confirm the workflow file is current.
 
-Updating `AI_WORKFLOW.md` is **part of "done"**. A task is not complete until the
-entry is written. Never delete or rewrite another agent's entry — append and
-correct with a clearly marked note if needed.
+Updating the workflow file is **part of "done"**. Never delete or rewrite another
+developer's entries — append and correct with a clearly marked note if needed.
 
 ---
 
@@ -134,42 +146,55 @@ explains the AI integration. Link it from `AI_WORKFLOW.md`.
 
 ---
 
-## 4. Entry template (copy this for every significant task)
+## 4. Update template (prepend for every significant task)
 
-Append the following block to the end of `AI_WORKFLOW.md`, under
-**“Chronological Work Log”**, for each meaningful unit of work:
+**Prepend** this block to the top of `AI_WORKFLOW_<git-username>.md` (newest
+first) for each meaningful unit of work:
 
 ```markdown
-### YYYY-MM-DD HH:MM — <short title>
+---
+## Update: [YYYY-MM-DD HH:MM:SS]
+**Developer:** [git-username]
 
-- **Agent / model:** <e.g. OpenCode, deepseek/deepseek-flash>
-- **Tooling:** <coding agent, MCP servers, skills, commands used>
-- **Goal:** <what this task set out to do>
-- **Prompt(s) / instructions that mattered:**
-  > <key prompt or instruction, verbatim or faithfully summarized>
-- **Approach:** <steps taken; architecture decisions and why>
-- **Files / areas touched:** <paths>
-- **Output review & validation:** <what was checked, how, and by whom/which
-  tool; tests run and results; evidence (logs, screenshots, commands)>
-- **Problems / failures / dead ends:** <what did not work and why>
-- **Known limitations:** <remaining gaps or risks>
-- **Lessons learned:** <takeaways for future work>
-- **Secrets check:** confirmed no credentials/PII added
+#### 1. AI Features (skip if none were built this session)
+* **Model/Service:** ...
+* **Inference Flow:** ...
+* **Data Handling & Privacy:** ...
+* **Limitations & Validation:** ...
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** ...
+* **MCP Servers & Skills:** ...
+* **Configuration:** ...
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** ...
+* **Implementation:** ...
+* **Key Prompts:** ...
+* **Testing & Debugging:** ...
+
+#### 4. Review & Validation
+* **Human Oversight:** ...
+* **Security Checks:** ...
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** ...
+* **Lessons Learned:** ...
 ```
 
-Delete any line that genuinely does not apply rather than leaving it blank.
-Keep entries honest and specific.
+Skip any section that does not apply rather than leaving it blank. Keep entries
+honest, specific, and heavily compressed.
 
 ---
 
 ## 5. Configuration & prompt hygiene
 
 - If a tool reads configuration (agent configs, `opencode.jsonc`, MCP config,
-  skills), record **the relevant parts** in `AI_WORKFLOW.md` — not the whole
-  file if it is large. Reference the path and summarize, then quote the parts
-  that shaped behavior.
+  skills), record **the relevant parts** in `AI_WORKFLOW_<git-username>.md` — not
+  the whole file if it is large. Reference the path and summarize, then quote the
+  parts that shaped behavior.
 - Store secrets in environment variables or a git-ignored local file. Never put
-  them in tracked files, prompts, or `AI_WORKFLOW.md`.
+  them in tracked files, prompts, or the workflow file.
 - Before committing, run a quick sanity check for accidentally included
   credentials. If one is found, rotate it and remove it from history if needed.
 
@@ -177,8 +202,8 @@ Keep entries honest and specific.
 
 ## 6. Pre-flight checklist (run before finishing any task / PR)
 
-- [ ] I read the existing `AI_WORKFLOW.md` before working.
-- [ ] I appended a dated entry for this task using the §4 template.
+- [ ] I read my `AI_WORKFLOW_<git-username>.md` before working.
+- [ ] I prepended a timestamped update for this task using the §4 template.
 - [ ] AI models, agents, MCP servers, skills, and tools used are named.
 - [ ] The meaningful prompts/instructions and relevant config are recorded.
 - [ ] The ideation → architecture → implementation → testing → debugging
@@ -191,7 +216,7 @@ Keep entries honest and specific.
 - [ ] No secrets, credentials, or personal data were added anywhere.
 - [ ] Only task-relevant files were staged/committed — no editor/IDE configs,
       generated output, large binaries, or unrelated prior work (see §8).
-- [ ] `AI_WORKFLOW.md` renders correctly and links are valid.
+- [ ] My `AI_WORKFLOW_<git-username>.md` renders correctly and links are valid.
 
 ---
 
@@ -203,7 +228,8 @@ Keep entries honest and specific.
   anywhere.
 - **Keep changes modular and readable.** Add reasonable error handling and
   input validation. No unnecessary permissions or risky dependencies.
-- **Test the key scenarios** and record the evidence in `AI_WORKFLOW.md`; full
+- **Test the key scenarios** and record the evidence in the per-developer
+  workflow file; full
   coverage is not required, but show that you checked your own work.
 - **Document reproducibility.** Keep setup/build/launch instructions in the
   README accurate and in sync with the code.
