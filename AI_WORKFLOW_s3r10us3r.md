@@ -9,6 +9,74 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 21:05:00
+**Developer:** s3r10us3r
+
+**Task:** add an on-device **PP-OCRv4 text extraction** module (detection +
+recognition) and a complete `extractTextFromImage()` function for the Guardian
+Phase 2 OCR path; ship the models as MindSpore Lite `.ms`.
+
+#### 1. AI Features
+* **Model/Service:** PaddleOCR **PP-OCRv4 mobile** — `ch_PP-OCRv4_det_infer`
+  (DB detection, 4.2 MB `.ms`) and `ch_PP-OCRv4_rec_infer` (SVTR/CTC recognition,
+  10.8 MB `.ms`), plus `ppocr_keys_v1.txt` (6623 chars). Converted ONNX→`.ms`
+  with MindSpore Lite 2.4.1 `converter_lite`.
+* **Inference Flow:** PixelMap → BGR → det preprocess (aspect-fit 960², NHWC
+  float32, ImageNet norm) → det `.ms` → probability map → DB postprocess
+  (components → min-area rect → rect-expansion unclip) → per-box affine crop →
+  rec preprocess (48×960, mean/std 0.5) → rec `.ms` → greedy CTC decode with the
+  dictionary → lines sorted top-to-bottom. Entry point
+  `entry/src/main/ets/ocr/OcrEngine.ets:extractTextFromImage(pixelMap, mgr)`.
+* **Data Handling & Privacy:** fully **on-device** (CPU via
+  `@ohos.ai.mindSporeLite`); no network, no data leaves the device. The demo OCRs
+  a bundled sample image.
+* **Limitations & Validation:** fixed input shapes; device rec max|Δ| vs ORT
+  3e-5, det functionally identical (6/6 boxes ≤2 px; 0.16% of pixels differ at
+  boundaries); multilingual not shipped. Validated with unit tests
+  (`tests/unit/ocr.test.ts`) and a local TS-vs-ORT harness; on-device run:
+  models 21 ms, detect 663 ms, recognize 2346 ms for 6/6 correct lines.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** `run-openharmony-app` skill (emulator + `oniro-app`
+  CLI).
+* **Configuration:** reused the LAYA toolchain (`~/ohos/laya/venv`,
+  MindSpore Lite 2.4.1, host `run_ms`). Build env: `OHOS_BASE_SDK_HOME=~/setup-ohos-sdk/linux`,
+  **JDK 17** (`~/ohos/jdk/jdk-17.0.20.1+1`), `oniro-app sign`.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** chose PP-OCRv4 via MindSpore Lite because the
+  OpenHarmony SDK has no `@kit.CoreVisionKit` OCR; kept the OCR math as
+  platform-free `.ts` so it is unit-testable.
+* **Implementation:** downloaded mobile ONNX from the RapidOCR HF mirror; fixed
+  input shapes by editing graph inputs and clearing stale `value_info` (an
+  `onnxsim` pass produced an invalid model); converted to `.ms`; wrote
+  `OcrTypes/ImageOps/DbPostprocess/CtcDecode` (pure TS) + `OcrEngine.ets`;
+  wrapped it in `ScreenOcrSource` and `pages/OcrDemo`.
+* **Key Prompts:** *"We now need an OCR model for detection AND recognition. use
+  PP-OCRv4 I need a complete function that uses the model to extract text from
+  the image"*; *"Go"*.
+* **Testing & Debugging:** host TS-vs-ORT end-to-end harness reproduced the
+  Python reference exactly (6/6 lines); ran the `.ms` on the emulator with a
+  native `OH_AI_*` runner; then built/installed the HAP and confirmed the demo.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer reviewed the emulator screenshot showing all six
+  lines with confidences.
+* **Security Checks:** no secrets; models are plain `.ms` in rawfile; OCR is
+  on-device only.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** `onnxsim` shape-fixing produced an invalid rec
+  graph (declared vs inferred dim conflict at `p2o.Concat.7`); MindSpore Lite
+  feeds **NHWC** so inputs must be transposed; the API-23 packing tool **wipes
+  the project directory at `PackageHap` under system Java 27** — fixed by
+  building with **JDK 17**.
+* **Lessons Learned:** fix ONNX shapes without `onnxsim` value_info; always build
+  API 20+ with JDK 17; validate converted `.ms` against ORT on real inputs both
+  on host and device.
+
+---
 ## Update: 2026-10-03 17:53:59
 **Developer:** s3r10us3r
 

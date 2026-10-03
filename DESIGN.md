@@ -1,7 +1,9 @@
 # Guardian — an on-device safety copilot for HarmonyOS
 
-> **Status:** **Phase 1 implemented** (SDK trigger + automated tests); Phase 2 and
-> §16 remain design/roadmap. See **§17 As-built** for exactly what ships today.
+> **Status:** **Phase 1 implemented** (SDK trigger + automated tests); **Phase 2
+> OCR engine implemented** (PP-OCRv4 det+rec on MindSpore Lite, demoed on the
+> emulator); §16 remains design/roadmap. See **§17 As-built** for exactly what
+> ships today.
 > **Date:** 2026-10-03
 > **Target platform:** **HarmonyOS** (Huawei), native **ArkTS / ArkUI**
 > **API level:** minimum **API 20**; the current dev/CI build compiles against the
@@ -388,6 +390,20 @@ are involved: the host only reports text it already owns.
   change), crop to likely text regions, run on-device OCR, feed the pipeline.
 - **Hardware:** CPU baseline; use the NPU (`NNRTDeviceType.ACCELERATOR`) when
   available.
+
+**As built (OCR engine, 2026-10-03).** `extractTextFromImage(pixelMap, mgr)` in
+`entry/src/main/ets/ocr/OcrEngine.ets` runs **PP-OCRv4 mobile** detection and
+recognition converted to MindSpore Lite:
+`det` (`1×960×960`, DB) finds text quads
+(`DbPostprocess.ts`: components → min-area rect → rect-expansion unclip),
+`rec` (`1×48×960`, SVTR/CTC) reads each crop (`ImageOps.ts`),
+and `CtcDecode.ts` maps the `ppocr_keys_v1` dictionary. Models ship in
+`resources/rawfile/ocr/`. On the Oniro emulator (API 23, CPU) the page
+`pages/OcrDemo.ets` recognizes a bundled sample in ~3.9 s total
+(models 21 ms, detect 663 ms, recognize 2346 ms for 6 lines). The
+`ScreenOcrSource` wraps this for the real capture path. This is independent of
+the Core Vision Kit seam in `vision/` (which is HarmonyOS-only and returns `''`
+on the OpenHarmony emulator). A demo entry point is `pages/OcrDemo`.
 
 ### 7.3 Optional — user-initiated share / clipboard
 
