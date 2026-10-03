@@ -1,0 +1,34 @@
+# --- Build output & caches ---
+**/build/
+**/oh_modules/
+**/.hvigor/
+.hvigor/
+/hvigor/
+*.hap
+*.hsp
+*.har
+*.abc
+
+# --- Local toolchain configuration (contains absolute paths) ---
+local.properties
+**/local.properties
+
+# --- Signing material & secrets (NEVER commit) ---
+signatures/
+**/signatures/
+*.p12
+*.p7b
+*.pem
+*.cer
+*.crt
+*.keystore
+*.jks
+
+# --- Logs & temp ---
+*.log
+*.tmp
+
+# --- Editor / OS ---
+.DS_Store
+.idea/
+*.iml
