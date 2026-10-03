@@ -4,6 +4,7 @@
 /.openharmony_sdk
 /.idea
 **/build
+/signatures
 /.hvigor
 .cxx
 /.clangd

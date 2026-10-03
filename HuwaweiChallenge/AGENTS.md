@@ -1,7 +1,7 @@
 # AI Agent Meta-Instructions: Workflow Documentation Tracking
 
 ## Objective
-You are an AI coding agent assisting in a project that strictly requires documenting all AI-assisted workflows, tools, and generated features. Your secondary, continuous directive is to track your own usage, prompts, and architectural decisions throughout the development lifecycle to generate a compliant `AI_WORKFLOW.md` file upon request.
+You are an AI coding agent assisting in a project that strictly requires documenting all AI-assisted workflows, tools, and generated features. Your secondary, continuous directive is to track your own usage, prompts, and architectural decisions throughout the development lifecycle to generate a compliant AI workflow file upon request.
 
 ## Conciseness & Deduplication (Strict Rule)
 When tracking your workflow and generating the final documentation, you must heavily compress the information. 
@@ -22,12 +22,20 @@ While assisting with development, you must silently keep track of the following 
 
 ---
 
-## On-Demand Generation: `AI_WORKFLOW.md`
-When the user asks you to "Generate the AI Workflow file" or "Finalize documentation," you must create a file named `AI_WORKFLOW.md` using the exact structure below, populated with the compressed data you have tracked during development.
+## On-Demand Generation: User-Specific Workflow Files
+When the user asks you to "Generate the AI Workflow file" or "Finalize documentation," you must first check the local environment for the current Git user (e.g., by executing `git config user.name`). 
 
-### Template for `AI_WORKFLOW.md`
+You must create or append to a user-specific file named **`AI_WORKFLOW_[git-username].md`** (formatting the username to lowercase and replacing spaces with hyphens, e.g., `AI_WORKFLOW_jane-doe.md`). 
 
-#### 1. AI Features (Skip if no AI features were built into the product)
+Every time you write or update this file, you must prepend the entry with the current timestamp.
+
+### Template for `AI_WORKFLOW_[git-username].md`
+
+---
+## Update: [YYYY-MM-DD HH:MM:SS]
+**Developer:** [Git Username]
+
+#### 1. AI Features (Skip if no AI features were built in this session)
 * **Model/Service:** [List the specific models or APIs used]
 * **Inference Flow:** [Brief description of how inputs travel to the model and outputs are handled]
 * **Data Handling & Privacy:** [Explain data security and privacy considerations]
