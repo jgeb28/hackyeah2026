@@ -12,6 +12,7 @@
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { ScanResult, ScanRequest, TriggerSource, Verdict } from './TriggerTypes';
+import { NotificationService } from '../alert/NotificationService';
 
 const DOMAIN: number = 0x0A11;
 const TAG: string = 'GuardianTrigger';
@@ -85,14 +86,44 @@ export class TriggerEngine {
 
   /**
    * Model-agnostic classifier (design §7):
-   *   step 1 (later): deterministic scam/misinformation rules -> filter off.
-   *   step 2 (later): LAYA `.ms` via MindSpore Lite over the label space.
-   * Today: stub that always returns SAFE, so the trigger plumbing can be proven.
+   *   step 1 (now):  deterministic scam rules over the label space.
+   *   step 2 (later): LAYA `.ms` via MindSpore Lite behind the same interface.
    */
-  classify(_request: ScanRequest): ScanResult {
-    // TODO(rules): impersonation / urgency / payment rails / isolation / lure.
-    // TODO(laya):  run the .ms model via @ohos.ai.mindSporeLite and map to Verdict.
-    return { verdict: Verdict.SAFE, category: 'none', confidence: 0, signals: [] };
+  classify(request: ScanRequest): ScanResult {
+    const t: string = request.text.toLowerCase();
+    const signals: string[] = [];
+
+    // Impersonation / claimed identity.
+    if (t.includes("it's me") || t.includes('its me') || t.includes('this is your') ||
+      t.includes("friend's number") || t.includes('new number')) {
+      signals.push('claims to be someone you know');
+    }
+    // Urgency / pressure to act.
+    if (t.includes('right now') || t.includes('today') || t.includes('urgent') ||
+      t.includes('asap') || t.includes('immediately') || t.includes('before ') ||
+      t.includes("don't call") || t.includes('do not call')) {
+      signals.push('urgent / pressure to act');
+    }
+    // Unusual payment rails.
+    if (t.includes('send') || t.includes('pay') || t.includes('transfer') ||
+      t.includes('€') || t.includes('$') || t.includes('account details') ||
+      t.includes('gift card') || t.includes('crypto')) {
+      signals.push('unusual payment request');
+    }
+    // Isolation / secrecy.
+    if (t.includes("don't tell") || t.includes('do not tell') || t.includes('keep this') ||
+      t.includes('between us')) {
+      signals.push('asks for secrecy / isolation');
+    }
+
+    // Tunable thresholds (design §7): 0 -> SAFE, 1 -> DANGEROUS, >=2 -> CRITICAL.
+    if (signals.length >= 2) {
+      return { verdict: Verdict.CRITICAL, category: 'scam', confidence: 0.9, signals };
+    }
+    if (signals.length === 1) {
+      return { verdict: Verdict.DANGEROUS, category: 'phishing', confidence: 0.6, signals };
+    }
+    return { verdict: Verdict.SAFE, category: 'none', confidence: 0, signals };
   }
 
   /** React to a verdict. Today: log. Later: AlertService (design §9). */
@@ -105,9 +136,10 @@ export class TriggerEngine {
       `chars=${request.text.length} => ${result.verdict}/${result.category} action=${action}`;
     if (action === 'ALERT') {
       hilog.warn(DOMAIN, TAG, line);
+      // Primary alert surface (design §9): local notification to the user.
+      NotificationService.get().publish(result, request.text, request.source);
     } else {
       hilog.info(DOMAIN, TAG, line);
     }
-    // TODO(alert): if result.verdict !== Verdict.SAFE -> notification / overlay.
   }
 }

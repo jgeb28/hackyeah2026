@@ -1,5 +1,6 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { notificationManager } from '@kit.NotificationKit';
 import { window } from '@kit.ArkUI';
 import { TriggerBridge } from '../trigger/TriggerBridge';
 
@@ -15,6 +16,10 @@ export default class EntryAbility extends UIAbility {
     // Fallback trigger ingestion (emulator-friendly); the accessibility path
     // (GuardianAccessibilityExtAbility) is the primary trigger on device.
     TriggerBridge.get().start();
+    // Ask the user to allow notifications so the trigger can alert them.
+    notificationManager.requestEnableNotification(this.context).catch((e: Object) => {
+      hilog.warn(DOMAIN, 'testTag', 'requestEnableNotification: %{public}s', JSON.stringify(e));
+    });
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
   }
 

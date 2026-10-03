@@ -32,6 +32,47 @@ and each is kept deliberately compressed (highlights only — no transcripts).
   provider-wide limit wildcard.
 
 ---
+## Update: 2026-10-03 16:11:00
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** `run-openharmony-app`; SDK API reference
+  (`~/setup-ohos-sdk/linux/23`).
+
+#### 3. Development Workflow & Prompts
+* **Key Prompt:** "Can you wire the trigger to the notification?"
+* **Implementation:** added `alert/NotificationService.ets` — publishes a local
+  notification (title by verdict, message text, `signals` + `via`) from
+  `TriggerEngine.handle()` whenever `action=ALERT`. Added the first deterministic
+  rules pass in `TriggerEngine.classify()` (impersonation / urgency / payment /
+  isolation; 0→SAFE, 1→DANGEROUS, ≥2→CRITICAL) so the scam thread actually
+  alerts. Both abilities call `notificationManager.requestEnableNotification()`.
+  Also added the in-app `TriggerDemo` + `DemoAbility` so the trigger is runnable
+  locally, and made the path explicit in logs (`via=… action=…`).
+* **Testing & Debugging:** rules verified on the emulator — messages now yield
+  `DANGEROUS/phishing`/`CRITICAL/scam` and `action=ALERT`; `NotificationService`
+  is invoked per alert.
+
+#### 4. Review & Validation
+* **Human Oversight / blocker:** notification **delivery could not be shown on the
+  Oniro emulator** — there is no running ANS/`NotificationService` process in the
+  image, so `notificationManager.publish()` fails with `Notification disabled`
+  and `requestEnableNotification()` returns an IPC error. The notification path
+  is wired and will work where the notification service runs (device / DevEco
+  HarmonyOS emulator).
+* **Security Checks:** no restricted permission declared; notification content is
+  the on-screen text only; no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the emulator lacks a working notification service and cannot
+  enable third-party accessibility; only the in-app `TriggerDemo` runs there.
+* **Lessons Learned:** ArkTS rejects a ternary over two enum members as a field
+  value when the target type is the enum (`SlotType` union not assignable) —
+  drop the optional field or assign via an `if`.
+
+---
+
 ## Update: 2026-10-03 15:47:00
 **Developer:** s3r10us3r
 
