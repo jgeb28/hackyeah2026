@@ -583,14 +583,13 @@ replays and highlights the message and offers *Call your child*.
 **Emulator caveat (verified).** The Oniro emulator aggressively kills the
 backgrounded Guardian process, so once the mock chat is foreground Guardian no
 longer receives SDK reports there. On the emulator we therefore demonstrate the
-pipeline with the **on-device `ohosTest`** (`tests/run-integration.sh`) and the
-in-app **`TriggerDemo`** replay; the *live cross-app* demo needs a real HarmonyOS
-device or a persistent/background mechanism (Phase 2, §7.2).
+pipeline with the **on-device `ohosTest`** suite and the in-app **`TriggerDemo`**
+replay; the *live cross-app* demo needs a real HarmonyOS device or a
+persistent/background mechanism (Phase 2, §7.2).
 
-**Automated evidence (Phase 1, run on the Oniro API 23 emulator):**
-`tests/run.sh` → unit **16/16**; `tests/run-integration.sh` → hypium `ohosTest`
-**3/3** (`Tests run: 3, Failure: 0, Error: 0, Pass: 3`). `tests/run-all.sh
-[--device]` runs both suites.
+**Automated evidence (Phase 1, run on the Oniro API 23 emulator):** unit
+**16/16**; hypium `ohosTest` **3/3** (`Tests run: 3, Failure: 0, Error: 0,
+Pass: 3`). See §17 for the exact commands.
 
 **Phase 2 (real, device):** no mock cooperation — Guardian captures the screen
 (`screenshot.capture()` for a still, or continuous `AVScreenCapture` + a
@@ -734,11 +733,14 @@ the repo; everything else in this document is target/roadmap.
 
 ### Tests (automatic)
 
-| Suite | Command | Result |
+| Suite | How to run | Result |
 | --- | --- | --- |
-| Unit (device-free, `node --test`) | `tests/run.sh` | **16/16 pass** |
-| Integration (hypium `ohosTest`, on-device) | `tests/run-integration.sh` | **3/3 pass** |
-| Both | `tests/run-all.sh [--device]` | — |
+| Unit (device-free, `node --test`) | `tsc -p tsconfig.tests.json && node --test .test-build/tests/unit/` | **16/16 pass** |
+| Integration (hypium `ohosTest`, on-device) | build + install the app & `ohosTest` HAP, then `aa test -b com.example.huwaweichallenge -m entry_test -s unittest OpenHarmonyTestRunner` | **3/3 pass** |
+
+The test **code** lives in `tests/unit/*.test.ts` (+ `tsconfig.tests.json`) and
+`entry/src/ohosTest`; no wrapper scripts are committed (the `oniro-app`/`hdc`
+commands are used directly).
 
 Unit tests cover the SDK protocol (round-trip, plain-text fallback, rejection of
 empty/malformed), classifier thresholds, and scan-policy dedupe/budget. The
