@@ -189,6 +189,8 @@ Keep entries honest and specific.
 - [ ] If an AI feature is involved: model/service, inference flow, data
       handling, limitations, validation, and privacy are documented.
 - [ ] No secrets, credentials, or personal data were added anywhere.
+- [ ] Only task-relevant files were staged/committed — no editor/IDE configs,
+      generated output, large binaries, or unrelated prior work (see §8).
 - [ ] `AI_WORKFLOW.md` renders correctly and links are valid.
 
 ---
@@ -206,6 +208,31 @@ Keep entries honest and specific.
 - **Document reproducibility.** Keep setup/build/launch instructions in the
   README accurate and in sync with the code.
 - **When in doubt, record it.** A short honest note is always better than a gap.
+
+---
+
+## 8. Commit & staging hygiene — do not dump files
+
+Stage **only** the files that belong to the current task. Never sweep the whole
+working tree into a commit or PR.
+
+- **Do not use `git add -A` / `git add .` on mixed work.** Add explicit paths,
+  or review with `git add -p`, so unrelated or leftover files are not included.
+- **Do not commit editor/IDE or local machine config**, e.g. `.vscode/`
+  (including `.vscode/settings.json`), `.idea/`, `*.iml`, `local.properties`,
+  `.DS_Store`, or shell dotfiles. Put them in `.gitignore` instead.
+- **Do not commit generated output or caches**: `build/`, `.hvigor/`,
+  `oh_modules/`, `*.hap`, `*.abc`, `*.log`, or screenshots that were only for
+  local debugging.
+- **Do not commit large binaries or model weights** (e.g. `*.ms`, `*.onnx`,
+  large media) unless the task explicitly requires shipping them — **ask
+  first**.
+- **Secrets stay absolute**: never commit signing material or credentials
+  (`signatures/`, `*.p12`, `*.p7b`, `*.pem`, keys, tokens) — see §3 and §5.
+- **Keep commits and PRs scoped.** A PR must contain the work for its stated
+  purpose only. If earlier local commits were never pushed, do **not** silently
+  publish them as part of an unrelated PR — surface them and ask.
+- **When in doubt, ask** before staging anything outside the task's scope.
 
 _If any instruction here conflicts with the official challenge rules, the
 challenge rules win — update this file to match them._
