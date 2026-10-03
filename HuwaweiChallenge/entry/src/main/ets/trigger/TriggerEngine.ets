@@ -97,11 +97,17 @@ export class TriggerEngine {
 
   /** React to a verdict. Today: log. Later: AlertService (design §9). */
   private handle(request: ScanRequest, result: ScanResult): void {
-    hilog.info(
-      DOMAIN, TAG,
-      `trigger #${this.scanCount} source=${request.source} bundle=${request.bundleName} ` +
-      `chars=${request.text.length} verdict=${result.verdict} category=${result.category}`
-    );
+    // `via` makes the ingestion path obvious; `action` distinguishes a trigger
+    // that ran from one that actually raised an alert.
+    const action: string = result.verdict === Verdict.SAFE ? 'none' : 'ALERT';
+    const line: string =
+      `trigger #${this.scanCount} via=${request.source} bundle=${request.bundleName} ` +
+      `chars=${request.text.length} => ${result.verdict}/${result.category} action=${action}`;
+    if (action === 'ALERT') {
+      hilog.warn(DOMAIN, TAG, line);
+    } else {
+      hilog.info(DOMAIN, TAG, line);
+    }
     // TODO(alert): if result.verdict !== Verdict.SAFE -> notification / overlay.
   }
 }

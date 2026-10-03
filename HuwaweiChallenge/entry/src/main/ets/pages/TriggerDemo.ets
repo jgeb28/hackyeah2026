@@ -43,7 +43,7 @@ struct TriggerDemo {
     this.shown++;
     // This is the trigger: fires as text is rendered.
     const result: ScanResult | null =
-      TriggerEngine.get().onTextRendered(TARGET_BUNDLE, m.text, TriggerSource.PAGE_ACTIVE);
+      TriggerEngine.get().onTextRendered(TARGET_BUNDLE, m.text, TriggerSource.DEMO);
     if (result === null) {
       this.lastVerdict = 'skipped (dedupe/budget)';
       return;
@@ -60,7 +60,7 @@ struct TriggerDemo {
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .fontColor('#F5F5F5')
-      Text(`scans: ${this.scans}    last verdict: ${this.lastVerdict}    chars: ${this.lastChars}`)
+      Text(`via: demo    scans: ${this.scans}    last verdict: ${this.lastVerdict}    chars: ${this.lastChars}`)
         .fontSize(13)
         .fontColor('#9CC4FF')
         .margin({ top: 4 })

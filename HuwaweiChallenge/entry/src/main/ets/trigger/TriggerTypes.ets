@@ -22,6 +22,8 @@ export enum TriggerSource {
   /** Fallback path when accessibility cannot be enabled (e.g. this emulator):
    *  the messaging app publishes a common event as it renders text. */
   COMMON_EVENT = 'commonEvent',
+  /** In-app page used to exercise the engine locally; triggers manually. */
+  DEMO = 'demo',
   UNKNOWN = 'unknown'
 }
 
