@@ -53,8 +53,7 @@ pgrep -f qemu-system-x86_64 && ss -ltn | grep 55555
 If not running, start it **detached** so it survives the calling shell:
 
 ```bash
-cd ~/ohos/emulator/oniro/images
-setsid nohup ./run.sh > ~/ohos/emulator/emulator.log 2>&1 < /dev/null &
+scripts/emulator.sh start     # windowed (-vga virtio) — see §1.1
 ```
 
 Then wait ~60s for boot and connect:
@@ -65,6 +64,34 @@ hdc tconn 127.0.0.1:55555          # -> Connect OK
 hdc list targets                   # -> 127.0.0.1:55555
 hdc shell "param get bootevent.boot.completed"   # -> true
 hdc shell "param get const.ohos.apiversion"      # -> 23
+```
+
+### 1.1 Seeing the GUI — windowed (`-vga virtio`), or VNC as fallback
+
+The stock `run.sh` uses `-vga none -device virtio-gpu-pci`. On this host
+(Wayland + hybrid GPU, QEMU 11.1.1) that console is **never presented** and the
+window only shows `Display output is not active.` — even though the guest is
+rendering fine (`hdc` screenshots work). This is *not* a guest/boot problem.
+
+**Fix: use the VGA-class `-vga virtio` device.** `scripts/emulator.sh start`
+now does this via `scripts/start-windowed.sh` (SDL, GL on). A real window with
+the full OS appears:
+
+```bash
+scripts/emulator.sh start                 # windowed, presents correctly
+ONIRO_DISPLAY=gtk scripts/emulator.sh start   # alternative backend
+```
+
+> The guest resolution follows the window size with `virtio-vga`, so to get a
+> phone-shaped screen, resize the QEMU window (portrait). `xres/yres` and
+> `edid=off` only take effect together with `-vga none`, which breaks the
+> presenter — avoid that combination.
+
+VNC remains available as a fallback and for headless capture:
+
+```bash
+scripts/emulator.sh start-vnc            # headless, VNC 127.0.0.1:5900
+scripts/emulator.sh capture shot.png     # PNG, dependency-free RFB client
 ```
 
 ## 2. Build, sign, install, launch
