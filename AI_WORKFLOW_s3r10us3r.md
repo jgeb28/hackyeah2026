@@ -9,6 +9,115 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 17:03:29
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** `run-openharmony-app` skill (Oniro emulator scripts); no MCP servers.
+* **Configuration/toolchain:** DevEco command-line-tools bundled `typescript` (`tsc` invoked via Node 26) for device-free tests; `oniro-app` for build/install.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** Implemented the Phase-1 SDK trigger as a real HAR (`@hackyeah/guardian_sdk`) behind an `IngestSource` abstraction (DESIGN §7.1), replacing the ad-hoc common-event bridge.
+* **Implementation:**
+  * New HAR `HuwaweiChallenge/guardian_sdk`: platform-free `GuardianProtocol` (`GUARDIAN_MESSAGE_EVENT`, `encodeReport`/`decodeReport`) + `GuardianClient`/`ReportEmitter` (common-event publish; emitter injectable for tests).
+  * Engine refactor (platform-free, unit-testable): `trigger/TriggerTypes.ts`, `Classify.ts`, `ScanPolicy.ts` (dedupe + per-minute budget, injectable clock), `IngestSource.ts` (`ScanJob`/`IngestSource`/`TriggerAlertSink`). `TriggerEngine` now takes an injectable policy + alert sink; `NotificationService` implements the sink.
+  * Guardian-side `sdk/InAppSdkSource.ets` subscribes to the SDK event, decodes, and feeds the engine; wired in `EntryAbility`. Removed `TriggerBridge.ets`/`TriggerTypes.ets`.
+  * `mocks/mockchat` now calls `GuardianClient.report(...)` instead of publishing raw common events.
+* **Key Prompt:** "Now implement the SDK based trigger. Create automatic unit and integration tests."
+* **Testing & Debugging:**
+  * **Unit (device-free):** `tests/unit/*.test.ts` compiled with the SDK `tsc` (`tsconfig.tests.json`) and run via `node --test`; `tests/run.sh` → **16/16 pass** (protocol round-trip/fallback/rejects; classifier thresholds; dedupe/budget).
+  * **Integration (on-device):** `entry/src/ohosTest/ets/test/SdkTrigger.test.ets` (hypium) encodes via the SDK, decodes as `InAppSdkSource` does, and runs a real `TriggerEngine` with a fake alert sink; `tests/run-integration.sh` builds+installs both HAPs and runs `aa test`. **Result on the Oniro API 23 emulator: `Tests run: 3, Failure: 0, Error: 0, Pass: 3`.**
+  * Fixes: HAR required `src/main/module.json5`; cross-project HAR linking failed hvigor's module-boundary check until `guardian_sdk` was declared as a module in the mockchat project (plain symlinked `ohpm install` then works); ohosTest `deviceTypes` had to match the app (`default`); `start-windowed.sh` had a malformed QEMU `hostfwd` rule → `tcp::PORT-:55555`.
+
+#### 4. Review & Validation
+* **Human Oversight:** autonomous implementation; developer to review before PR.
+* **Validation evidence:** device-free unit suite = 16/16 pass; on-device `ohosTest` on the Oniro API 23 emulator = 3/3 pass; both apps build via `oniro-app`; launching the app logs `GuardianSdkSource: SDK source subscribed` (runtime wiring confirmed).
+* **Security Checks:** no secrets added; signingConfigs (passwords) left unstaged; generated `.test-build/` and `BuildProfile.ets` gitignored.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** cross-project `file:` HAR dependency as a raw symlink is rejected by the ArkTS module-boundary check; project-level `.ohpmrc` is not honored.
+* **Lessons Learned:** declare a cross-project HAR as a module in the consumer project; keep detection logic platform-free in `.ts` for off-device testing — Node strips types but not enums, so compile with the SDK `tsc`.
+* **Known limitation (emulator):** the live cross-app demo (mockchat foreground → Guardian) is not reproducible on this Oniro emulator because it kills the backgrounded Guardian process, dropping the common-event subscriber. Phase 1's in-app/ohosTest paths still validate the full SDK→engine→alert pipeline; staying alive cross-app is Phase 2 (continuous task / real device).
+
+---
+## Update: 2026-10-03 16:51:12
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none; used `websearch` to verify HarmonyOS screen-capture constraints.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture (decision):** Adopted a **phased HarmonyOS strategy**: **Phase 1 = in-app SDK** trigger (hackathon simulation, emulator-friendly), **Phase 2 = screen capture → on-device OCR** (the "real" path that reads apps *without their cooperation*), **§16 north star = first-level system access**. Rationale: embedding Guardian into the mock app is a weak demo; OCR is the closest a third-party HarmonyOS app gets to system access.
+* **Verification (internet):** Huawei FAQ confirms `screenshot.capture()` returns a **full-screen** shot; third-party access via `CUSTOM_SCREEN_CAPTURE` (`normal`/`user_grant`), requested from a foreground window (`CAPTURE_SCREEN` is system-only). Background/continuous capture uses `AVScreenCapture` + a continuous task (`KEEP_BACKGROUND_RUNNING` + `backgroundModes`) but **AVScreenCapture is real-device only (not on the emulator)**.
+* **Implementation:** updated `DESIGN.md` (696 lines) — phase framing in the scope banner/§1/§3; new Phase 2 prerequisites (§4.5); HarmonyOS feasibility table (§5); triggers §7.1 SDK / §7.2 OCR; notifications clarified as local-vs-Push-Kit (§10); permissions + risks + milestones (M7) updated; OCR labels changed from "stretch" to "Phase 2".
+* **Key Prompts:** "What is the push kit vs sdk based difference? … If it would mean we need to embed our app in the mock it's the worse design."; "Let's do it via sdk FIRST … we will simulate then do real OCR if we have time"; "Verify then using the internet."
+
+#### 4. Review & Validation
+* **Human Oversight:** user approved consent+indicator, throttling + NPU acceleration; accepted SDK-first sequencing.
+* **Security Checks:** no secrets added; shipping build still assumes no system/restricted permissions.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** on HarmonyOS a third-party app cannot read other apps' UI or notifications; **screen capture + OCR is the only no-cooperation trigger**, and it is real-device-only for continuous capture. Local notifications are an *alert output*, not a trigger; Push Kit is server-originated and unrelated.
+
+---
+## Update: 2026-10-03 16:43:57
+**Developer:** s3r10us3r
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture (decision):** After comparing HarmonyOS vs OpenHarmony, chose **HarmonyOS-only** as the shipping target and rewrote `DESIGN.md` (v2) around the triggers a **third-party HarmonyOS app** can actually use: **A1 in-app SDK (primary)**, **SDK-driven local notifications** as the alert surface, **A3 screen capture → on-device OCR (stretch)**, plus optional share/clipboard. Added a new **§4 Requirements & prerequisites** and a top-level **§16 Intended / final design — first-level (system) access** capturing the accessibility + notification-listening vision reachable only with system signing (OpenHarmony self-sign today; Huawei system signing on HarmonyOS).
+* **Implementation:** full rewrite of `DESIGN.md` (16 sections + 2 appendices, 661 lines), reconciling an earlier partial edit; renumbered sections and fixed cross-references. No source code changed.
+* **Key Prompts:** "we will restrict our design to HarmonyOS… The design doc should then have the sdk based notifications. Add also the screenshot thing - as a stretch"; "keep an intended/final design where you write about the first-level system access"; "Top level section. Edit the DESIGN.md."
+
+#### 4. Review & Validation
+* **Human Oversight:** confirmed scope = HarmonyOS; interpreted "first-level system access" as APL `system_basic` system-app access.
+* **Security Checks:** no secrets added; no restricted/system permissions assumed in the shipping build.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** a third-party HarmonyOS app cannot read other apps' UI or notifications; SDK integration is the only automatic cross-app trigger. Local notifications are an *alert output*, not a trigger; Push Kit is server-originated and not a local trigger.
+
+---
+## Update: 2026-10-03 16:29:29
+**Developer:** s3r10us3r
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture (decision):** Recorded the technical decision in `DESIGN.md`: the accessibility premise is **removed** (closed to third-party apps at API 12+), and Guardian ingestion becomes **A1 in-app SDK (primary) + A4 notification trigger (secondary, restricted/best-effort)**, with **A3 screen-capture→OCR as a stretch**. Engine moves behind an `IngestSource` abstraction (`InAppSdkSource`, `NotificationSource`, `ScreenOcrSource`).
+* **Implementation:** rewrote `DESIGN.md` §1, §2 (persona), §3 (goals/non-goals), §4 (feasibility table → SDK/notification/OCR, accessibility marked closed), §5 (architecture diagram + components), §6 (IngestSource interface, per-source rules, scan policy), §10 (consent/data handling/threat model), §11 (permissions), §12 (demo), §13 (risks), §14 (milestones), Appendix B.
+* **Key Prompt:** "In design make a technical decision, we will use A1 AND push notification trigger, A3 as a stretch."
+
+#### 4. Review & Validation
+* **Human Oversight:** interpretation of "push notification trigger" = the notification-subscriber ingress (A4); flagged to the user for confirmation.
+* **Security Checks:** no permissions invented; permission levels cited from `PermissionDefinitions.json`; no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** documenting the restricted notification permission explicitly as "inactive + logged, never faked" keeps the design honest and the demo reproducible (A1 via mock apps).
+
+---
+## Update: 2026-10-03 16:25:42
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none (plain SDK + web research).
+* **Configuration:** searched the local OpenHarmony SDK at `~/setup-ohos-sdk/linux/23/` (`ets/api/*.d.ts`, `toolchains/lib/PermissionDefinitions.json`, `toolchains/modulecheck/module.json`) to derive API/permission facts; cross-checked with Huawei docs (via websearch) since the doc pages are JS-rendered and `webfetch` returns an empty shell.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** Asked for an extensive survey of event/listener sources a **third-party** app can use on HarmonyOS/OpenHarmony **API 20+**, to replace the accessibility trigger (which is closed to third-party apps: `AccessibilityExtensionAbility.onAccessibilityEvent/onKeyEvent/onConnect/onDisconnect` are `@deprecated since 12`; `ohos.permission.ACCESSIBILITY_EXTENSION_ABILITY` is `system_basic` since 20). Goal: decide the real trigger surface for Guardian.
+* **Implementation:** none (research only). Mined permission levels from `PermissionDefinitions.json`, enumerated all `on(type:'…')` subscription APIs across `ets/api/*.d.ts`, listed the public `usual.event.*` common events, and verified third-party viability per API.
+* **Key Prompts:** "Do an extensive search and bring me back a list of events that **can** be listened to. If nothing works we will do notification listener and In-app sdk."
+* **Testing & Debugging:** n/a (no code changed).
+
+#### 4. Review & Validation
+* **Human Oversight:** findings are sourced from the installed SDK's permission table (authoritative) plus Huawei/community docs; conclusions flagged where only community evidence exists.
+* **Security Checks:** no secrets used; local signing passwords stay out of the workflow file.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** third-party accessibility trigger — closed at API 12+, not an emulator issue, so the Windows HarmonyOS emulator would not help either.
+* **Lessons Learned (key):** Third-party notification listening is **also restricted**, not open: `NotificationSubscriberExtensionAbility.onReceiveMessage` (API 22) needs `ohos.permission.SUBSCRIBE_NOTIFICATION` = `system_basic`/`system_grant`, provision-gated via AGC and documented for third-party **wearable/companion** apps. So "notification listener + in-app SDK" collapses to **in-app SDK + user-initiated paths** unless Huawei grants the restricted permission.
+* **Only real third-party text surfaces found:** (1) own/in-app SDK, (2) ShareExtensionAbility + foreground clipboard/paste (user-initiated), (3) InputMethodExtensionAbility (an IME can read the focused editor's text across apps, incl. `getForward/getBackward`, `SecurityMode.FULL`), (4) screen capture + OCR (`ohos.permission.CUSTOM_SCREEN_CAPTURE` = `normal`/`user_grant`; AVScreenCapture basic only shows a mandatory consent dialog). No general "rendered on-screen text" event exists for third parties.
+
+---
 ## Update: 2026-10-03 15:17:25
 **Developer:** s3r10us3r
 

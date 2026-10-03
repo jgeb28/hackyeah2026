@@ -1,7 +1,4 @@
-import { commonEventManager } from '@kit.BasicServicesKit';
-
-/** Common event consumed by the Guardian main app's trigger bridge. */
-const MESSAGE_RENDERED_EVENT: string = 'com.hackyeah.mockchat.MESSAGE_RENDERED';
+import { GuardianClient } from '@hackyeah/guardian_sdk';
 
 interface ChatMessage {
   id: number;
@@ -16,6 +13,7 @@ struct Index {
   @State messages: ChatMessage[] = [];
   private scroller: Scroller = new Scroller();
   private cursor: number = 0;
+  private guardian: GuardianClient = new GuardianClient();
 
   // Scenario A — "family emergency" money scam. Tap anywhere to reveal the next line.
   private script: ChatMessage[] = [
@@ -40,20 +38,15 @@ struct Index {
   }
 
   /**
-   * Tell the Guardian main app that a message was rendered. This is the
-   * emulator-friendly fallback for the accessibility trigger; on device the
-   * accessibility service reads the same text directly.
+   * Report the rendered message to Guardian through the SDK. The text never
+   * leaves the device: Guardian classifies it locally and raises an alert.
    */
   private announceRendered(m: ChatMessage): void {
-    const options: commonEventManager.CommonEventPublishData = {
+    this.guardian.report({
       bundleName: 'com.hackyeah.mockchat',
-      code: m.id,
-      data: m.text
-    };
-    commonEventManager.publish(MESSAGE_RENDERED_EVENT, options, (err) => {
-      if (err) {
-        console.error(`Guardian: failed to announce rendered message: ${JSON.stringify(err)}`);
-      }
+      text: m.text,
+      messageId: m.id.toString(),
+      timestampMs: Date.now()
     });
   }
 

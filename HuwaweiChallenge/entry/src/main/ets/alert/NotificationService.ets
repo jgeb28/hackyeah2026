@@ -1,24 +1,26 @@
 /**
- * NotificationService — the primary AlertSurface (DESIGN.md §9).
+ * NotificationService — the primary AlertSurface (DESIGN.md §10).
  *
- * When the trigger produces a non-SAFE verdict, the accessibility extension /
- * bridge publishes a local notification ("push" to the user) with the verdict
- * and the human-readable signals. Tapping it (later) opens the Guardian overlay.
+ * Implements `TriggerAlertSink`: when the engine reaches a non-SAFE verdict the
+ * service posts a local notification (an on-device "push" to the user) carrying
+ * the verdict and the human-readable signals. Tapping it (later) opens the
+ * Guardian overlay.
  *
- * Usage: notificationManager.publish() — no restricted permission; the user must
- * have allowed notifications for the app (publish fails with 1600020 otherwise).
+ * `notificationManager.publish()` needs no restricted permission; the user must
+ * have allowed notifications for the app (otherwise publish errors).
  */
 import { notificationManager } from '@kit.NotificationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { ScanResult, Verdict } from '../trigger/TriggerTypes';
+import { ScanResult, TriggerSource, Verdict } from '../trigger/TriggerTypes';
+import { TriggerAlertSink } from '../trigger/IngestSource';
 
 const DOMAIN: number = 0x0A11;
 const TAG: string = 'GuardianNotify';
 
-/** From which ingestion path the alert came (shown in the notification). */
+/** Notification channel/group tag (shown in logs and, later, the overlay). */
 export const NOTIFY_CHANNEL: string = 'guardian_alerts';
 
-export class NotificationService {
+export class NotificationService implements TriggerAlertSink {
   private static instance: NotificationService | null = null;
   private nextId: number = 1000;
 
@@ -30,11 +32,12 @@ export class NotificationService {
   }
 
   /** Post the user-facing alert for a non-SAFE verdict. */
-  publish(result: ScanResult, sourceText: string, via: string): void {
+  alert(result: ScanResult, sourceText: string, source: TriggerSource): void {
+    const via: string = `${source}`;
     const isCritical: boolean = result.verdict === Verdict.CRITICAL;
     const title: string = isCritical ? 'Potential scam detected' : 'Suspicious message';
-    const body: string = sourceText.length > 140 ? `${sourceText.substring(0, 140)}…` : sourceText;
-    const signals: string = result.signals.length > 0 ? result.signals.join(' · ') : 'Guardian';
+    const body: string = sourceText.length > 140 ? `${sourceText.substring(0, 140)}\u2026` : sourceText;
+    const signals: string = result.signals.length > 0 ? result.signals.join(' \u00B7 ') : 'Guardian';
 
     const request: notificationManager.NotificationRequest = {
       id: this.nextId++,
@@ -49,7 +52,8 @@ export class NotificationService {
     };
 
     notificationManager.publish(request).then(() => {
-      hilog.info(DOMAIN, TAG, `notification #${request.id} published: ${result.verdict}/${result.category} via=${via}`);
+      hilog.info(DOMAIN, TAG,
+        `notification #${request.id} published: ${result.verdict}/${result.category} via=${via}`);
     }).catch((e: Object) => {
       hilog.error(DOMAIN, TAG, `publish failed: ${e}`);
     });
