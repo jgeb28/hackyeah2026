@@ -822,4 +822,65 @@ Newest entries go at the bottom.
 - **Secrets check:** confirmed no credentials/PII added (the obfuscated signing
   passwords were reverted and never committed)
 
+### 2026-10-03 14:23 — Designed the on-device safety copilot (`DESIGN.md`)
+
+- **Agent / model:** OpenCode agent running `deepseek/deepseek-flash`
+- **Tooling:** `read` (viewed `init_design.md`), `grep`/`shell` (inspected the
+  API 23 SDK `.d.ts` files), `websearch` (DevEco emulator, Live View Kit),
+  `question` (iterative design Q&A), `write`, `git` (branch + commits)
+- **Goal:** Turn the rough `init_design.md` into a precise design document for a
+  HarmonyOS/OpenHarmony app, correcting the on-the-fly decisions and
+  inaccuracies.
+- **Prompt(s) / instructions that mattered:**
+  > “There are several on-the-fly design decisions and inaccuracies that I made
+  > here. Ask me questions and we will arrive on a final design.”
+  > Selected answers: unified copilot; accessibility service; notification-first
+  > with a Live View adapter as stretch; emulator baseline; LAYA + embedding RAG;
+  > consent = always-on scams + per-app opt-in + cloud-by-consent; mock apps for
+  > the demo; keep CRITICAL/DANGEROUS/SAFE; min/compile **API 20**; name TBD.
+- **Approach:**
+  1. Read `init_design.md`; listed the concrete inaccuracies (a normal HAP cannot
+     silently screenshot/read other apps; overlays and Smart Island are not
+     third-party; LAYA is a classifier, not a generative LLM; WhatsApp is absent
+     on HarmonyOS NEXT; inconsistent consent; cloud contradicts on-device).
+  2. **Grounded every feasibility claim in the installed SDK** (API 23 `.d.ts`):
+     `@ohos.application.AccessibilityExtensionAbility` +
+     `AccessibilityExtensionContext` (`getWindowRootElement`, `injectGesture`,
+     capabilities `retrieve|gesture|keyEventObserver|zoom|touchGuide`) are
+     third-party-available; `window.TYPE_FLOAT` needs
+     `ohos.permission.SYSTEM_FLOAT_WINDOW`; `NotificationSystemLiveViewContent`
+     is documented “Only system applications are supported”;
+     `@ohos.data.intelligence` exists in the SDK but is absent on the Oniro
+     image.
+  3. Researched the DevEco **Windows HarmonyOS emulator** and **Live View Kit**:
+     the emulator exists but needs `runtimeOS: HarmonyOS` + AGC signing, and Live
+     View on the emulator is unverified — hence notification-first.
+  4. Ran a multi-round `question` Q&A to lock scope, content access, alert
+     surfaces, model stack, escalation, consent, demo sources, verdict model, API
+     level and the Smart-Island strategy.
+  5. Wrote `DESIGN.md` (overview, personas, platform feasibility table,
+     architecture/data-flow, acquisition/triggers, detection, RAG/escalation,
+     alert UX, consent/privacy/threat model, permissions, demo plan, risks,
+     milestones, and a LAYA appendix).
+- **Files / areas touched:** `DESIGN.md` (new, on branch `design/app-spec`);
+  `main` also received `15725a1` (skill + AI_WORKFLOW + project `.npmrc`/lockfile
+  commit). `init_design.md` left untracked as the user's working draft.
+- **Output review & validation:** The design branch adds **exactly one file**
+  relative to `main` (`git diff --stat main..design/app-spec` → `DESIGN.md`);
+  every platform claim cross-checked against the API 23 `.d.ts`. No code/build
+  tests apply to a design document.
+- **Problems / failures / dead ends:** The draft's central UX (Smart Island +
+  overlay over another app) is **not achievable by a third-party HAP**; this was
+  the main correction. LAYA's exact scam accuracy and `.ms` conversion remain
+  assumptions, so the design keeps a model-agnostic `classify()` and a fallback
+  classifier.
+- **Known limitations:** Product name/bundle id are placeholders; v1 language,
+  embedding model, on-device LLM, fine-tuning dataset, and cloud provider are
+  open. Live View and NPU paths are device/stretch and unverified.
+- **Lessons learned:** On OpenHarmony, "read the screen" is an accessibility
+  capability, while "draw over other apps" and Smart Island are system-only —
+  verify against the SDK `.d.ts` before designing UX. Keep the model interface
+  swappable when the model's HarmonyOS runtime is unproven.
+- **Secrets check:** confirmed no credentials/PII added
+
 <!-- END WORK LOG -->
