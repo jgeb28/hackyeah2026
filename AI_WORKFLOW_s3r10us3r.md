@@ -9,6 +9,42 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 14:56:57
+**Developer:** s3r10us3r
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** `run-openharmony-app` skill; no MCP servers.
+* **Configuration:** JDK 17; project `.npmrc` kept local (git-ignored).
+
+#### 3. Development Workflow & Prompts
+* **Key Prompts:**
+  * "we are going to make a MOCK app … mock messages and 'on click' render the
+    scenario A conversation … Before pushing anything i MUST test it via EMU."
+* **Ideation & Architecture:** standalone OpenHarmony project `mocks/mockchat`
+  (bundle `com.hackyeah.mockchat`, API 20) that visually mimics the HarmonyOS
+  Messages app; tap-**anywhere** advances Scenario A one bubble at a time
+  (including one outgoing user reply), so it will emit accessibility
+  `textUpdate`/window-content events for Guardian.
+* **Implementation:** scaffolded via `oniro-app create --sdk 20`; wrote
+  `entry/src/main/ets/pages/Index.ets` (top bar, bubble list, input bar);
+  `oniro-app sign → build → app install → app launch`.
+
+#### 4. Review & Validation
+* **Human Oversight:** emulator test (required before push) — `BUILD SUCCESSFUL`,
+  install/launch OK, `aa dump -l` shows the app `#FOREGROUND`; screenshots confirm
+  the full thread renders; `oniro-app dump layout` shows every message as a
+  `"text"` node (i.e. readable by an accessibility service).
+* **Security Checks:** `.npmrc` / `.vscode` / `local.properties` are git-ignored
+  (`gitignore` now ignores `.npmrc` repo-wide); the `signingConfigs` block written
+  by `oniro-app sign` was reverted and not committed.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** the mock's on-screen text is exposed in the layout tree, so
+  the accessibility-trigger phase can key off it; keep the project `.npmrc`
+  uncommitted (it can carry registry tokens).
+
+---
 ## Update: 2026-10-03 14:45:32
 **Developer:** s3r10us3r
 
