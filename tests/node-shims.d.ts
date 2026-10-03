@@ -13,3 +13,13 @@ declare module 'node:assert/strict' {
   const assert: Assert;
   export default assert;
 }
+
+declare module 'node:fs' {
+  export function readFileSync(path: string, encoding: string): string;
+}
+
+declare module 'node:path' {
+  export function resolve(...parts: string[]): string;
+}
+
+declare const __dirname: string;

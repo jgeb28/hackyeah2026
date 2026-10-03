@@ -447,6 +447,10 @@ removed by Phase 2 (OCR), and removed entirely by the system-access triggers in
 **Purpose:** explain *what* is happening and *what to do*, grounded in curated
 knowledge, with an escape hatch when the KB is insufficient.
 
+> **Phase-1 resource:** the shipped incident knowledge base, its LAYA matching,
+> severity, and the **L0/L1/L2** message escalation are specified in **§18**. The
+> embedding model and RAG below are the longer-term retrieval layer.
+
 - **KB corpus (curated, shipped offline):**
   - Scam patterns: authority/relative impersonation, urgency, isolation, unusual
     payment rails (gift cards, crypto, wire), credential/link lures.
@@ -723,6 +727,7 @@ the repo; everything else in this document is target/roadmap.
 | Alert sink | `entry/src/main/ets/alert/NotificationService.ets` |
 | Host demo | `mocks/mockchat/` (calls `GuardianClient.report`) |
 | In-app replay | `entry/src/main/ets/pages/TriggerDemo.ets` |
+| Incident KB (data, §18) | `entry/src/main/resources/rawfile/kb/en/incidents.json` |
 
 ### Wire format
 
@@ -757,8 +762,95 @@ and drives a real `TriggerEngine` with a fake alert sink.
 - **In repo but not shipping:** an `AccessibilityExtensionAbility` prototype
   (`entry/src/main/ets/accessibility/GuardianAccessibilityExtAbility.ets`) exists
   for OpenHarmony dev testing of the §16 tier.
-- **Not yet built:** overlay `UIAbility`, KB/RAG, LAYA `.ms`, per-app toggles,
-  Phase 2 OCR (§7.2), system sources (§16).
+- **Not yet built:** overlay `UIAbility`, the KB/RAG runtime (resource defined in
+  §18), LAYA `.ms`, per-app toggles, Phase 2 OCR (§7.2), system sources (§16).
+
+---
+
+## 18. Knowledge resource (incidents) — schema & escalation
+
+The on-device knowledge base ships as one locale-scoped **JSON data resource**
+(no scripts, no network):
+
+```
+entry/src/main/resources/rawfile/kb/en/incidents.json
+```
+
+### 18.1 Top level
+
+```json
+{
+  "schemaVersion": 1,
+  "locale": "en",
+  "severityColors": { "CRITICAL": "#E84026", "WARNING": "#ED6F21", "INFO": "#0A59F7" },
+  "prompts": { "localSystem": "…", "cloudSystem": "…" },
+  "incidents": [ /* 10 */ ]
+}
+```
+
+### 18.2 Incident fields
+
+| Field | Meaning |
+| --- | --- |
+| `id`, `version`, `locale` | stable key, migration, i18n |
+| `category` | `scam` \| `misinformation` \| `harassment` \| `notice` |
+| `severity` | `CRITICAL` \| `WARNING` \| `INFO` — **UI colour/priority only**, independent of the engine's `Verdict` |
+| `escalation` | `L0` \| `L1` \| `L2` — the highest message layer this case may use |
+| `cta` | label of the escalation button |
+| `title` | short heading (rendered large) |
+| `description` | one/two sentences — **part 1 of LAYA's label** |
+| `keywords` | screen phrases that trigger the case — **part 2 of LAYA's label** |
+| `signals` | deterministic pre-`classify` gate (`required` / `anyOf`) |
+| `explanation`, `remediation`, `actions`, `sources` | overlay content + model grounding |
+| `messages` | `level0` (always) plus `level1` and/or `level2` |
+
+**LAY A contract.** The message text is the input; each case is a choice labelled
+`description + " — " + keywords.join(", ")`; LAYA returns the best `id` (or none).
+The matched case supplies `severity`, `messages`, and `remediation`. There is no
+vector store in Phase 1.
+
+### 18.3 Standard message + escalation
+
+Every layer emits the same object — `{ "title": …, "text": … }` — and the app
+attaches `severity` from the case (the model never sets it). `level0` **always**
+exists and is shown immediately, offline. Escalation is **on demand**: the L0
+message carries the case's `cta`, and only a tap escalates.
+
+| Level | Field | Runs | When | Fallback |
+| --- | --- | --- | --- | --- |
+| **L0** | `messages.level0` | none | always (the floor) | — |
+| **L1** | `messages.level1` | on-device LLM | user taps `cta` | → L0 |
+| **L2** | `messages.level2` | cloud + retrieval | user taps `cta`, then consents | → L0 |
+
+- **L0 "What should I do?"** reveals the static `explanation` / `remediation` — no model.
+- **L1 "Explain this"** runs the local LLM (no consent, no network).
+- **L2 "Check this claim"** needs explicit consent and a **grounded** cloud lookup
+  that returns cited `sources` (never model memory); offline or declined → L0.
+
+### 18.4 The 10 incidents
+
+| id | sev | esc | LAYA label (`description` — `keywords`) |
+| --- | --- | --- | --- |
+| `family-emergency-money` *(scenario A)* | CRITICAL | L0 | Relative in trouble, urgent money, don't call — it's me, new number, phone broke, accident, send money, don't call, transfer, gift card, hospital, bail |
+| `misinfo-breaking-event` *(scenario B)* | WARNING | L2 | Alarming breaking-news claim, no credible source, share quickly — breaking, confirm before deleted, sources say, share now |
+| `bank-authority-impersonation` | CRITICAL | L0 | Claims to be bank/police/tax pushing verify or pay — bank fraud department, verify your account, account will be frozen, click here, police |
+| `delivery-fee-smishing` | WARNING | L0 | Held parcel asks a small fee or details via a link — parcel held, delivery failed, customs fee, small fee, reschedule |
+| `otp-verification-theft` | CRITICAL | L0 | Someone asks you to read out or forward a one-time code — share the code, 6-digit code, read me the code, otp |
+| `gift-card-utility-threat` | CRITICAL | L0 | Threat of disconnection/fine/arrest, pay by gift card or crypto — final notice, disconnection, pay with gift cards, arrest, bitcoin |
+| `investment-guaranteed-returns` | CRITICAL | L1 | Guaranteed/high returns, act fast off-platform — guaranteed returns, weekly profit, mentor, dm me, whatsapp, no risk |
+| `romance-scam` | WARNING | L1 | Online partner never met, repeatedly needs money — i love you, never met, clearance fee, send money, visa |
+| `sextortion-blackmail` | CRITICAL | L0 | Threat to expose private images/info unless you pay — i have your video, webcam, pay in bitcoin, your contacts |
+| `safe-otp-notice` | INFO | L0 | A legitimate one-time code with no related request — verification code, one-time password, do not share this code |
+
+7 cases are fully offline (L0), 2 use the on-device LLM (L1), 1 uses the cloud
+with consent (L2).
+
+### 18.5 Caveats
+
+- Misinformation is `WARNING` ("may be unreliable") and **never** asserts falsehood.
+- L2 sends only the claim text (§11) and caches results by claim hash.
+- The resource is validated by `tests/unit/kb-incidents.test.ts` (schema, enums,
+  layer/level consistency).
 
 ---
 
