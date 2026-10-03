@@ -37,3 +37,8 @@ signatures/
 # --- npm config (may contain registry auth tokens) ---
 .npmrc
 **/.npmrc
+
+# --- Large model artefacts (built separately by the converter; never commit) ---
+*.ms
+*.onnx
+*.mindir
