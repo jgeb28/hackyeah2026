@@ -1,17 +1,61 @@
 # Guardian — running & testing
 
-Guardian is an independent observer: host apps (or the mock) report rendered text
-via the SDK, and Guardian intercepts those reports and raises the alert. The app
-never calls the demo, and the demo never calls the app's engine.
+Guardian is a **Smart Island**. Collapsed it is a small pill; tap it to expand, then
+press **Screenshot** to capture the screen and check it for scams. The verdict appears
+in the island: green "Looks safe" (then it collapses by itself) or a red/orange warning
+with the text. The small **x** turns the island off.
+
+## Island behaviour
+
+The island runs **only as a floating window** — there is no in-app island. The control
+screen has one button: **Show floating island** / **Hide floating island**.
+
+- **Collapsed** — small, always-neutral dark pill (`Guardian`); tap it to expand.
+- **Expanded** — `Screenshot` and `Close` buttons, plus the small `x` in the corner.
+- **Safe** — turns **green** and shows "Looks safe"; it stays until you press `Close`.
+- **Scam** — turns **red/orange** and shows the warning text; it stays until you press `Close`.
+- **Close** — collapses the island back to the plain neutral pill (status colour cleared).
+- **x** — turns the island off (destroys the floating window and its background task).
+
+The island never closes on its own: the only ways out are `Close` (back to the neutral
+pill) and `x` (off).
+
+## How the scan works
+
+Tap **Screenshot** → request `ohos.permission.CUSTOM_SCREEN_CAPTURE` (first time) →
+`screenshot.capture()` (whole display) → on-device OCR (`@kit.CoreVisionKit`) →
+split into lines → classify **by text length** → keep the most severe → show it.
+The captured `PixelMap` is released right after OCR; the image is never kept.
+
+The island runs as a **floating window** (`TYPE_FLOAT`, `pages/FloatingIsland`) on top of
+other apps. The window resizes between a small pill and the expanded card so it blocks as
+little of the screen as possible, and starts a `dataTransfer` continuous task while
+visible so the process stays responsive.
+
+Length thresholds (placeholder until the validation model):
+`< 50` → SAFE, `50–99` → WARNING (`misinformation`), `>= 100` → CRITICAL (`scam`).
+
+## On-device OCR — emulator limitation
+
+**Core Vision Kit OCR is not available on emulators** — Huawei states it explicitly
+("This capability is currently not supported on emulators"), and on the emulator
+`textRecognition` is `undefined` (`GuardianOcr: ocr failed ... Cannot read property
+init of undefined`). There is no other public OCR library in the SDK that runs on the
+emulator (MindSpore Lite is available but needs a `.ms` model; the device-side models
+target Arm/Kirin, and the emulator is x86_64).
+
+**Demo behaviour without OCR:** when OCR returns no text, the scanner picks a **random**
+built-in sample (a safe or a scam message) so both island states can be shown. The island
+labels it `(sample: scam)` / `(sample: safe)`. On a real HarmonyOS phone OCR returns text
+and this substitution never happens.
 
 ## Prerequisites
 
 - DevEco Studio + HarmonyOS SDK (project builds against `6.1.1(24)`).
 - A running emulator/device visible to `hdc`.
-- `build-profile.json5` set to `runtimeOS: "HarmonyOS"` (otherwise it targets
-  OpenHarmony and will not run on a HarmonyOS emulator).
-
-Set the paths once per PowerShell session:
+- `build-profile.json5` set to `runtimeOS: "HarmonyOS"`.
+- `module.json5`: `CUSTOM_SCREEN_CAPTURE`, `SYSTEM_FLOAT_WINDOW`,
+  `KEEP_BACKGROUND_RUNNING`; `EntryAbility` declares `backgroundModes: ["dataTransfer"]`.
 
 ```powershell
 $DEVECO = "D:\Huawei\DevEco Studio"
@@ -32,98 +76,46 @@ Set-Location $PROJ; $env:DEVECO_SDK_HOME="$DEVECO\sdk"; & "$DEVECO\tools\node\no
 & $HDC -t $TARGET install -r "$PROJ\entry\build\default\outputs\default\entry-default-unsigned.hap"
 ```
 
-## 3. Start the app once (it then stays in the background)
+## 3. Run
 
 ```powershell
 & $HDC -t $TARGET shell aa start -a EntryAbility -b com.example.huwaweichallenge
-& $HDC -t $TARGET shell "uitest uiInput keyEvent Home"
 ```
 
-Registering the SDK subscriber and the global shortcut happens in `EntryAbility`.
+On the app screen: tap the island, then **Screenshot**. Use **Show floating island** to
+keep the island on top of other apps; open a message or a web page and use it to scan.
 
-## 4. Fire triggers
-
-The mock trigger reports incidents from the knowledge base through the SDK; the
-app intercepts them. Each press advances to the next incident (10 total, then it
-cycles).
-
-Next incident:
+## 4. Live logs
 
 ```powershell
-& $HDC -t $TARGET shell "uitest uiInput keyEvent 2045 2047 2021"
+& $HDC -t $TARGET shell "hilog -T GuardianIsland,GuardianIslandWin,GuardianScanner,GuardianOcr,CONTINUOUS_TASK -v color"
 ```
 
-All 10 in a row:
-
-```powershell
-1..10 | ForEach-Object { & $HDC -t $TARGET shell "uitest uiInput keyEvent 2045 2047 2021"; Start-Sleep -Milliseconds 1200 }
-```
-
-## 5. Live logs
-
-Streams new lines as triggers arrive (Ctrl+C to stop):
-
-```powershell
-& $HDC -t $TARGET shell "hilog -T GuardianTrigger,GuardianNotify,GuardianOverlay -v color"
-```
-
-Expected sequence per trigger:
+Expected on tap:
 
 ```
-GuardianTrigger: report incident <id> (<category>/<severity>)
-GuardianTrigger: trigger #N via=sdk bundle=com.hackyeah.mockchat ... => <VERDICT>/<category> sev=<SEVERITY> action=ALERT
-GuardianOverlay: overlay shown
-GuardianNotify: notification #N published: <VERDICT>/<category> via=sdk
+GuardianIslandWin: island window shown        (floating island only)
+GuardianScanner: scan text=<n> sample=<none|scam|safe>
+GuardianOcr: ocr failed ...                   (emulator: Core Vision not available)
 ```
-
-## Incident order (as in `resources/rawfile/kb/en/incidents.json`)
-
-| # | id | category | severity |
-| - | -- | -------- | -------- |
-| 0 | family-emergency-money | scam | CRITICAL |
-| 1 | misinfo-breaking-event | misinformation | WARNING |
-| 2 | bank-authority-impersonation | scam | CRITICAL |
-| 3 | delivery-fee-smishing | scam | WARNING |
-| 4 | otp-verification-theft | scam | CRITICAL |
-| 5 | gift-card-utility-threat | scam | CRITICAL |
-| 6 | investment-guaranteed-returns | scam | CRITICAL |
-| 7 | romance-scam | scam | WARNING |
-| 8 | sextortion-blackmail | harassment | CRITICAL |
-| 9 | safe-otp-notice | notice | INFO |
-
-Title comes from `category`, colour from `severity` (`severityColors` in the KB);
-the body is the incident's `messages.level0.text`.
 
 ## Files this feature touches
 
-New:
-- `entry/src/main/ets/kb/IncidentKnowledge.ets`
-- `entry/src/main/ets/alert/AlertTheme.ets`
-- `entry/src/main/ets/alert/AlertOverlay.ets`
-- `entry/src/main/ets/pages/SentinelOverlay.ets`
-- `entry/src/main/ets/trigger/MockTriggerController.ets`
-
-Changed:
-- `entry/src/main/ets/alert/NotificationService.ets`
-- `entry/src/main/ets/entryability/EntryAbility.ets`
-- `entry/src/main/ets/pages/Index.ets`
-- `entry/src/main/ets/sdk/InAppSdkSource.ets`
-- `entry/src/main/ets/trigger/IngestSource.ts`
-- `entry/src/main/ets/trigger/TriggerEngine.ets`
-- `entry/src/main/ets/trigger/TriggerTypes.ts`
-- `entry/src/main/module.json5`
-- `entry/src/main/resources/base/profile/main_pages.json`
-- `guardian_sdk/src/main/ets/GuardianClient.ets`
-- `guardian_sdk/src/main/ets/GuardianProtocol.ts`
-
-Not shipped: `oh-package-lock.json5` files (generated) and `build-profile.json5`
-(local config).
+New: `entry/src/main/ets/vision/ScreenScanner.ets`, `entry/src/main/ets/vision/OcrEngine.ets`,
+`entry/src/main/ets/vision/ScreenClassifier.ets`, `entry/src/main/ets/components/SmartIsland.ets`,
+`entry/src/main/ets/alert/IslandOverlay.ets`, `entry/src/main/ets/pages/FloatingIsland.ets`.
+Changed: `entry/src/main/ets/pages/Index.ets`, `entry/src/main/ets/entryability/EntryAbility.ets`,
+`entry/src/main/resources/base/profile/main_pages.json`, `entry/src/main/module.json5`.
+Removed: `entry/src/main/ets/vision/VisionScanLoop.ets`.
 
 ## Limitations
 
-- The alert overlay uses a `TYPE_FLOAT` window (`ohos.permission.SYSTEM_FLOAT_WINDOW`);
-  where the permission is unavailable, only the notification is shown.
-- `aa start` on a UIAbility brings the app forward, and a background `appService`
-  cannot be started via `aa` (permission denied) — so the console trigger uses the
-  global shortcut instead.
-- The accessibility source is present but cannot be enabled on a retail build.
+- **OCR does not work on the emulator** (see above); the sample fallback is used instead.
+- A third-party app **cannot capture silently**: `screenshot.capture()` shows the system
+  capture indicator. That is expected — the user triggers each scan.
+- The floating window captures the whole display, including its own text; the classifier
+  keeps the most severe line.
+- The floating window still occupies a small rectangle at the top and blocks touches
+  there (a `TYPE_FLOAT` behaviour).
+- **Classification is length-based (a placeholder)** until the validation model is added
+  in `ScreenClassifier.classifyOne()`.

@@ -4,12 +4,11 @@ import { notificationManager } from '@kit.NotificationKit';
 import { window } from '@kit.ArkUI';
 import { AlertOverlay } from '../alert/AlertOverlay';
 import { AlertTheme } from '../alert/AlertTheme';
-import { IncidentKnowledge } from '../kb/IncidentKnowledge';
+import { IslandOverlay } from '../alert/IslandOverlay';
 import { InAppSdkSource } from '../sdk/InAppSdkSource';
 import { ScanJob } from '../trigger/IngestSource';
 import { TriggerEngine } from '../trigger/TriggerEngine';
 import { TriggerSource } from '../trigger/TriggerTypes';
-import { MockTriggerController } from '../trigger/MockTriggerController';
 
 const DOMAIN = 0x0000;
 
@@ -25,11 +24,10 @@ export default class EntryAbility extends UIAbility {
     // Interception pipeline: observe SDK reports, classify, alert (overlay + notification).
     AlertOverlay.setContext(this.context);
     AlertTheme.load(this.context);
-    IncidentKnowledge.load(this.context);
+    IslandOverlay.setContext(this.context);
     this.source.start((job: ScanJob) => {
       TriggerEngine.get().onReport(job.bundleName, job.text, job.category, job.severity, TriggerSource.SDK);
     });
-    MockTriggerController.register();
     notificationManager.requestEnableNotification(this.context).catch((e: Object) => {
       hilog.warn(DOMAIN, 'testTag', 'requestEnableNotification: %{public}s', JSON.stringify(e));
     });
@@ -37,7 +35,6 @@ export default class EntryAbility extends UIAbility {
   }
 
   onDestroy(): void {
-    MockTriggerController.unregister();
     this.source.stop();
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
   }

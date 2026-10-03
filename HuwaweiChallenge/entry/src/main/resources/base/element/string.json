@@ -27,6 +27,14 @@
     {
       "name": "demo_label",
       "value": "Guardian demo"
+    },
+    {
+      "name": "capture_reason",
+      "value": "Guardian reads the screen on-device to detect scam content."
+    },
+    {
+      "name": "background_reason",
+      "value": "Guardian keeps checking the screen for scam content."
     }
   ]
 }
