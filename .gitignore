@@ -31,4 +31,9 @@ signatures/
 # --- Editor / OS ---
 .DS_Store
 .idea/
+.vscode/
 *.iml
+
+# --- npm config (may contain registry auth tokens) ---
+.npmrc
+**/.npmrc
