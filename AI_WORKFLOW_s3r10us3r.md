@@ -24,6 +24,7 @@ and each is kept deliberately compressed (highlights only — no transcripts).
   * Engine refactor (platform-free, unit-testable): `trigger/TriggerTypes.ts`, `Classify.ts`, `ScanPolicy.ts` (dedupe + per-minute budget, injectable clock), `IngestSource.ts` (`ScanJob`/`IngestSource`/`TriggerAlertSink`). `TriggerEngine` now takes an injectable policy + alert sink; `NotificationService` implements the sink.
   * Guardian-side `sdk/InAppSdkSource.ets` subscribes to the SDK event, decodes, and feeds the engine; wired in `EntryAbility`. Removed `TriggerBridge.ets`/`TriggerTypes.ets`.
   * `mocks/mockchat` now calls `GuardianClient.report(...)` instead of publishing raw common events.
+  * **Docs:** refreshed `DESIGN.md` to the **as-built** state — §6/§7.1 (common-event SDK delivery, `InAppSdkSource`), §7 interface aligned to code, §8 rules classifier, §13 demo reality + emulator caveat, §15 milestone status, and a new **§17 As-built (Phase 1)** (code map, wire format, tests, limits).
 * **Key Prompt:** "Now implement the SDK based trigger. Create automatic unit and integration tests."
 * **Testing & Debugging:**
   * **Unit (device-free):** `tests/unit/*.test.ts` compiled with the SDK `tsc` (`tsconfig.tests.json`) and run via `node --test`; `tests/run.sh` → **16/16 pass** (protocol round-trip/fallback/rejects; classifier thresholds; dedupe/budget).
