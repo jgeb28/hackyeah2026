@@ -5,7 +5,7 @@ import { image } from '@kit.ImageKit';
 import { common, abilityAccessCtrl, Permissions } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { OcrEngine, ScreenOcrEngine } from './OcrEngine';
-import { ScreenClassifier } from './ScreenClassifier';
+import { LayaClassifier } from './LayaClassifier';
 import { ScanResult } from '../trigger/TriggerTypes';
 
 const DOMAIN: number = 0x0A11;
@@ -21,6 +21,7 @@ export interface ScanOutcome {
 
 export class ScreenScanner {
   private ocr: OcrEngine = new ScreenOcrEngine();
+  private laya: LayaClassifier = new LayaClassifier();
 
   /** Capture the screen once, read the real text, and classify it. */
   async scanOnce(): Promise<ScanOutcome> {
@@ -42,7 +43,15 @@ export class ScreenScanner {
       }
     }
 
-    const result: ScanResult | null = text.length > 0 ? ScreenClassifier.strongest(text) : null;
+    let result: ScanResult | null = null;
+    if (text.length > 0) {
+      try {
+        result = await this.laya.classify(text);
+      } catch (err) {
+        error = 'The screen text was read, but the on-device model is unavailable.';
+        hilog.error(DOMAIN, TAG, 'laya classify failed: %{public}s', JSON.stringify(err));
+      }
+    }
     hilog.info(DOMAIN, TAG, 'scan text=%{public}d error=%{public}s', text.length, error);
     return { text, result, error };
   }

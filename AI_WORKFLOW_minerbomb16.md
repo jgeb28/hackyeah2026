@@ -1,6 +1,34 @@
 # AI Workflow - minerbomb16
 
 ---
+## Update: 2026-10-04 00:07:51
+**Developer:** minerbomb16
+
+#### 1. AI Features
+* **Model/Service:** two on-device models chained — **PP-OCRv4** (MindSpore Lite, det+rec) for text, then **LAYA** (MindSpore Lite, in an ArkTS Worker) for the decision. Fully offline.
+* **Inference Flow:** island `Screenshot` → `screenshot.capture()` → PP-OCRv4 → text → Laya (`risk`/`category`/`urgency`) → `ScanResult` (`SAFE/DANGEROUS/CRITICAL` + category + severity) → `IncidentKb` lookup in `rawfile/kb/en/incidents.json` → island card (title/explanation/remediation from the matching incident).
+* **Data Handling & Privacy:** on-device only; the captured frame is released right after OCR; no network path.
+* **Limitations & Validation:** ✅ **first full end-to-end run** on the emulator: capture worked on `Pura 90 max` (API 24), OCR `detect 13 boxes in 1072 ms` + `recognized 13 lines in 7134 ms`, Laya `infer ok: tokens=82 latency=151463`, `GuardianScanner scan text=250 error=` (no error). Island showed `Possible family-emergency…` (KB) in CRITICAL red.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** the user described the target flow (screenshot → OCR → text → Laya → decision, per DESIGN §6/§7.2/§8/§9 + `incidents.json`).
+* **Implementation:** (1) merged `origin/main` into `add_jev` (2 conflicts: workflow file unioned to 14 entries; `Index.ets` = main's island screen + an `Open Laya demo` button while keeping the Laya page as `pages/LayaDemo.ets`). (2) Added `alert/IncidentKb.ets` (reads the 10 KB incidents, picks the most severe for a category) and `vision/LayaClassifier.ets` (Laya → `ScanResult`); `vision/ScreenScanner` now classifies via Laya instead of the length placeholder; `SmartIsland` renders the KB title + explanation + remediation; `EntryAbility` loads the KB.
+* **Key Prompts:** "okej 1. to co jest na branchu add_jev push to remote 2. do the rebase 3. how it should work… screenshot is taken, then ocr reads… then that txt goes to laya" ; "może być (a)"; "dawaj".
+* **Testing & Debugging:** rebuilt (`BUILD SUCCESSFUL`), uninstalled the old app (the 1.57 GB HAP failed to install twice with `insufficient disk memory` until the stale sandbox copy was removed), installed, granted the capture permission, and ran the scan; verified via logs and screenshots.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer approved the merge approach and asked for the integration.
+* **Security Checks:** no network permission; models are `.ms` in rawfile / git-ignored; no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** a plain `git rebase` of `add_jev` onto main was aborted — the two branches had added the same Laya files in parallel, producing add/add conflicts; a merge resolved them once.
+* **Lessons Learned:** (1) the floating island **captures its own window**, so its UI text is OCR'd and can skew the verdict — it should hide during capture; (2) KB matching by `category` alone is coarse (it picked the generic `family-emergency` incident); (3) on a 6 GB emulator Laya takes ~151 s per inference.
+
+---
 ## Update: 2026-10-03 23:45:55
 **Developer:** minerbomb16
 
