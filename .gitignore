@@ -4,10 +4,16 @@
 **/.hvigor/
 .hvigor/
 /hvigor/
+BuildProfile.ets
+**/BuildProfile.ets
 *.hap
 *.hsp
 *.har
 *.abc
+
+# --- Local-only tooling (kept on disk, not committed) ---
+.opencode/
+tests/*.sh
 
 # --- Local toolchain configuration (contains absolute paths) ---
 local.properties
@@ -27,6 +33,9 @@ signatures/
 # --- Logs & temp ---
 *.log
 *.tmp
+
+# --- Device-free unit-test build output (tests/run.sh) ---
+.test-build/
 
 # --- Editor / OS ---
 .DS_Store

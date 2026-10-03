@@ -1,0 +1,8 @@
+{
+  "accessibilityCapabilities": [
+    "retrieve"
+  ],
+  "description": "Guardian watches the messaging app and runs an on-device safety check whenever text is rendered.",
+  "name": "Guardian Safety Service",
+  "settingsAbility": "EntryAbility"
+}

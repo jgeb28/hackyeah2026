@@ -10,6 +10,31 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.SYSTEM_FLOAT_WINDOW"
+      },
+      {
+        "name": "ohos.permission.CUSTOM_SCREEN_CAPTURE",
+        "reason": "$string:capture_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "always"
+        }
+      },
+      {
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
+        "reason": "$string:background_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "always"
+        }
+      }
+    ],
     "abilities": [
       {
         "name": "EntryAbility",
@@ -20,6 +45,9 @@
         "startWindowIcon": "$media:startIcon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
+        "backgroundModes": [
+          "dataTransfer"
+        ],
         "skills": [
           {
             "entities": [
@@ -30,6 +58,16 @@
             ]
           }
         ]
+      },
+      {
+        "name": "DemoAbility",
+        "srcEntry": "./ets/entryability/DemoAbility.ets",
+        "description": "$string:demo_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:demo_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true
       }
     ],
     "extensionAbilities": [
@@ -42,6 +80,20 @@
           {
             "name": "ohos.extension.backup",
             "resource": "$profile:backup_config"
+          }
+        ]
+      },
+      {
+        "name": "GuardianAccessibilityExtAbility",
+        "srcEntry": "./ets/accessibility/GuardianAccessibilityExtAbility.ets",
+        "description": "$string:accessibility_description",
+        "label": "$string:accessibility_label",
+        "type": "accessibility",
+        "exported": true,
+        "metadata": [
+          {
+            "name": "ohos.accessibleability",
+            "resource": "$profile:accessibility_config"
           }
         ]
       }

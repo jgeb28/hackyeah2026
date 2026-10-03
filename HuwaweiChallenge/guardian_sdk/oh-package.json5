@@ -1,0 +1,9 @@
+{
+  "name": "@hackyeah/guardian_sdk",
+  "version": "1.0.0",
+  "description": "Guardian SDK — host-app trigger client for the Guardian safety copilot.",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {}
+}

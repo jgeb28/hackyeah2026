@@ -260,5 +260,33 @@ working tree into a commit or PR.
   publish them as part of an unrelated PR — surface them and ask.
 - **When in doubt, ask** before staging anything outside the task's scope.
 
+---
+
+## 9. Feature, comment & script hygiene
+
+- **Test before you open a PR.** Every feature or fix must be built **and**
+  exercised (automated where possible, plus a manual smoke check) and pass
+  **before** a PR is created. The PR must state what was run and the result
+  (build status, test counts). Untested work is not "done".
+- **Comments stay short.** Use a single one-line file header and terse inline
+  notes; explain *why*, not *what*. No large doc blocks, no commented-out dead
+  code, and no per-declaration narration.
+- **No scripts in the repo.** Do not commit shell scripts, Python, or other
+  helper/tooling scripts unless a script is **directly required for the agent to
+  run** (i.e. agent infrastructure explicitly in scope). Machine, emulator, and
+  build helpers stay **local and git-ignored**. The repo holds project code,
+  tests, and docs only.
+
+---
+
+## 10. Pull requests — humans merge, agents do not
+
+- Agents may create branches, commit, push, and open or update pull requests.
+- Agents must **never merge a PR** (nor close one) on their own. Opening a PR
+  means **hand it back** to the developer for review and merge.
+- Do **not** push directly to `main` (or any protected branch) unless the human
+  explicitly instructs it for that specific change.
+- After opening a PR, stop and report the PR link plus what was built/tested.
+
 _If any instruction here conflicts with the official challenge rules, the
 challenge rules win — update this file to match them._

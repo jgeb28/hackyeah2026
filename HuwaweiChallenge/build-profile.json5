@@ -21,6 +21,18 @@
   },
   "modules": [
     {
+      "name": "guardian_sdk",
+      "srcPath": "./guardian_sdk",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
       "name": "entry",
       "srcPath": "./entry",
       "targets": [

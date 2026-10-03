@@ -1,3 +1,5 @@
+import { GuardianClient } from '@hackyeah/guardian_sdk';
+
 interface ChatMessage {
   id: number;
   outgoing: boolean;
@@ -11,6 +13,7 @@ struct Index {
   @State messages: ChatMessage[] = [];
   private scroller: Scroller = new Scroller();
   private cursor: number = 0;
+  private guardian: GuardianClient = new GuardianClient();
 
   // Scenario A — "family emergency" money scam. Tap anywhere to reveal the next line.
   private script: ChatMessage[] = [
@@ -28,9 +31,23 @@ struct Index {
     }
     this.messages = this.messages.concat([this.script[this.cursor]]);
     this.cursor++;
+    this.announceRendered(this.script[this.cursor - 1]);
     setTimeout(() => {
       this.scroller.scrollEdge(Edge.Bottom);
     }, 60);
+  }
+
+  /**
+   * Report the rendered message to Guardian through the SDK. The text never
+   * leaves the device: Guardian classifies it locally and raises an alert.
+   */
+  private announceRendered(m: ChatMessage): void {
+    this.guardian.report({
+      bundleName: 'com.hackyeah.mockchat',
+      text: m.text,
+      messageId: m.id.toString(),
+      timestampMs: Date.now()
+    });
   }
 
   @Builder
