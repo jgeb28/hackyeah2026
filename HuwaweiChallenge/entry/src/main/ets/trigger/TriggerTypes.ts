@@ -16,6 +16,8 @@ export enum TriggerSource {
   NOTIFICATION = 'notificationChange',
   /** Host app reported text through the Guardian SDK. */
   SDK = 'sdk',
+  /** Captured from a periodic screenshot + on-device OCR. */
+  VISION = 'vision',
   COMMON_EVENT = 'commonEvent',
   DEMO = 'demo',
   UNKNOWN = 'unknown'
