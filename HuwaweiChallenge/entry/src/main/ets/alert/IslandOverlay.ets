@@ -7,10 +7,10 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 const DOMAIN: number = 0x0A11;
 const TAG: string = 'GuardianIslandWin';
 const WIN_NAME: string = 'guardian_island_overlay';
-const WIN_XL_VP: number = 268;
+const WIN_XL_VP: number = 300;
 const WIN_XS_W_VP: number = 180;
 const WIN_XS_H_VP: number = 56;
-const WIN_XL_H_VP: number = 200;
+const WIN_XL_H_VP: number = 320;
 const WIN_Y_VP: number = 40;
 const BUNDLE: string = 'com.example.huwaweichallenge';
 
