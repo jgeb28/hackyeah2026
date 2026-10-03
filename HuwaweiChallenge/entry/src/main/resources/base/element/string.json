@@ -19,6 +19,14 @@
     {
       "name": "accessibility_label",
       "value": "Guardian Safety Service"
+    },
+    {
+      "name": "demo_desc",
+      "value": "Guardian trigger demo"
+    },
+    {
+      "name": "demo_label",
+      "value": "Guardian demo"
     }
   ]
 }

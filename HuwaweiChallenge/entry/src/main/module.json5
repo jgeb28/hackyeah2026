@@ -30,6 +30,16 @@
             ]
           }
         ]
+      },
+      {
+        "name": "DemoAbility",
+        "srcEntry": "./ets/entryability/DemoAbility.ets",
+        "description": "$string:demo_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:demo_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true
       }
     ],
     "extensionAbilities": [
