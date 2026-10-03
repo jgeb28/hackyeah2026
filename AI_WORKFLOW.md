@@ -685,4 +685,141 @@ Newest entries go at the bottom.
   path.
 - **Secrets check:** confirmed no credentials/PII added
 
+### 2026-10-03 14:00 — Pulled newest `main` and validated the Hello World app on the emulator
+
+- **Agent / model:** OpenCode agent running `deepseek/deepseek-flash`
+- **Tooling:** `git` (fetch/merge), `oniro-app` 0.11.0 (`sdk install 6.1`, `sign`,
+  `build`, `app install/launch`, `screenshot`), `hdc`, `ohpm`, `npm`, bundled
+  `hvigorw` 5.18.5, npm `@ohos/hvigor`/`@ohos/hvigor-ohos-plugin` 6.24.5,
+  QEMU Oniro emulator, `read` (viewed the screenshot)
+- **Goal:** Pull the newest `main` from the team remote and validate that the
+  Hello World app committed there opens on the Oniro/OpenHarmony emulator.
+- **Prompt(s) / instructions that mattered:**
+  > “Pull the newest main. Validate you can open the hello world app set up
+  > there on the emulator.”
+  > “Minimal API is API 20” (correction to the earlier “minimum API 23”).
+- **Approach:**
+  1. Fetched `origin`; discovered a new **unrelated-history** `origin/main`
+     commit `d7af954 "init"` containing a `HuwaweiChallenge/` Stage-model ArkTS
+     project (`com.example.huwaweichallenge`) plus a root `README.md`. The local
+     `main` was our earlier baseline `14ceffb`.
+  2. Integrated it with `git merge origin/main --allow-unrelated-histories`
+     (clean, no conflicts) → merge commit `b3d171c`.
+  3. Started the Oniro emulator (QEMU/KVM) and installed the matching **SDK
+     6.1 = API 23** via `oniro-app sdk install 6.1` (lands in
+     `~/setup-ohos-sdk/linux/23`). Emulator reports API 23; `hdc` over
+     `127.0.0.1:55555` connected.
+  4. Attempted the team project's build. It repeatedly **deleted the entire
+     project directory** and failed at packaging. Reproduced outside git in
+     `/tmp/opencode/hc*`, pinpointed it to
+     `:entry:default@PackageHap` followed by `entry/oh-package.json5` “File is
+     not exist”. The bundled hvigor is **5.18.5 (API 18 era)** while the project
+     builds against the API 23 SDK.
+  5. Tried to force hvigor 6.x by editing `hvigor/hvigor-config.json5`
+     (`@ohos/hvigor-ohos-plugin: 6.24.5`), installing the 6.24.5 engine from
+     `repo.harmonyos.com/npm`, and running the engine directly. The build then
+     progressed further (correct `modelVersion: 6.0.0` needed) but the
+     destructive wipe at packaging **still occurred**, so it is not purely a
+     hvigor-version issue.
+  6. Tested `app_packing_tool.jar` in isolation (API 23 and API 18 jars) with
+     `--force true`: it does **not** delete unrelated files, so the tool itself
+     is not what wipes the tree.
+  7. **Validation workaround:** built the *same* project source in a scratch copy
+     against the known-good **API 18** toolchain (set
+     `compileSdkVersion`/`compatibleSdkVersion` to 18), signed, installed and
+     launched it on the emulator.
+- **Files / areas touched:** `/home/s3r10us3r/hackyeah2026` (merge commit on
+  `main`), `/tmp/opencode/hc18` (scratch API-18 build), `/tmp/opencode/hello.jpeg`
+  (screenshot), `~/setup-ohos-sdk/linux/23` (SDK install). The repo’s
+  `HuwaweiChallenge/` source was restored with `git restore` after each
+  destructive build attempt; working tree is clean.
+- **Output review & validation:** `oniro-app app install` →
+  `install bundle successfully`; `oniro-app app launch` → `start ability
+  successfully`; `aa dump -l` shows mission
+  `com.example.huwaweichallenge:entry:EntryAbility` with `state #FOREGROUND`.
+  The screenshot `hello.jpeg` (941×581) shows the ArkUI **“Hello World”** screen.
+  **This validates that the app opens on the emulator**, albeit from an API 18
+  compile of the same source.
+- **Problems / failures / dead ends:** (a) `origin/main` and local `main` had
+  unrelated histories — resolved with `--allow-unrelated-histories` merge.
+  (b) The **API 23 build is destructive** with the locally available toolchain
+  and does not produce a HAP. (c) The public Huawei mirror only hosts
+  command-line-tools **5.1.0 (API 18)**; there is no public Linux
+  command-line-tools 6.x, so a matching API 20/23 `hvigor` cannot simply be
+  fetched. (d) Forcing npm hvigor 6.24.5 required bypassing the 5.18.5 wrapper
+  (which force-links its own engine); it built further but still wiped the tree.
+- **Known limitations:** The app was **not** built against API 20/23 locally;
+  the running HAP is an **API 18** compile. Root cause of the API 23 wipe is not
+  fully identified (hvigor task path resolution, not the packing tool). The
+  requirement is now recorded as **minimum API 20**, while the team project
+  currently declares `compileSdkVersion`/`compatibleSdkVersion` 23.
+- **Lessons learned:** A mismatch between the SDK a project targets (API 23) and
+  the bundled build tooling (hvigor 5.18.5, API 18) can cause **silent
+  destructive behaviour**, so always keep project sources recoverable
+  (git-restore, build in scratch copies). The Oniro emulator + API 18 toolchain
+  remains the reliable local inner loop; API 20/23 needs matching 6.x
+  command-line tools.
+- **Secrets check:** confirmed no credentials/PII added
+
+### 2026-10-03 14:08 — Resolved API 20+ build: root cause was Java 27, fixed with JDK 17
+
+- **Agent / model:** OpenCode agent running `deepseek/deepseek-flash`
+- **Tooling:** `oniro-app` 0.11.0 (`sdk install 6.0/6.1`, `sign`, `build`,
+  `app install/launch`, `screenshot`), `ohpm`, bundled `hvigorw` 5.18.5, `hdc`,
+  Temurin **JDK 17**, `aria2c`, QEMU Oniro emulator, `read` (viewed screenshot)
+- **Goal:** Do everything required to build, sign, install and run the team's
+  Hello World project through **API 20+** (instead of the API 18 workaround).
+- **Prompt(s) / instructions that mattered:**
+  > “Do all the steps required to run it through API 20+.”
+  > “Minimal API is API 20.”
+- **Approach:**
+  1. Installed SDK **6.0 (API 20)** and confirmed a clean API 20 build succeeds
+     (`compileSdkVersion`/`compatibleSdkVersion` = 20) — no wipe, HAP produced.
+  2. Root-caused the earlier API 23 destruction: instrumented Node `fs`/`fs-extra`
+     (no deletes logged) and then reproduced the wipe directly by running the
+     API 23 `app_packing_tool.jar` with the exact `PackageHap` args. The tool
+     **deletes its own current working directory** on failure; `hvigor` spawns it
+     with `cwd = project root`, so the project is destroyed. Running it from a
+     sandbox cwd made the same build succeed — confirming the tool (not hvigor)
+     is at fault.
+  3. Hypothesis: Java 27 incompatibility. The API 23 packing tool uses
+     `sun.misc.Unsafe`/fastjson2 and is built for the JDK DevEco bundles. There
+     is no JDK 17 on the system (only `java-27-openjdk`), so I downloaded Temurin
+     **JDK 17.0.20.1** to `~/ohos/jdk/jdk-17.0.20.1+1` with `aria2c`.
+  4. Re-ran the API 23 build with JDK 17 (no wrapper/hack): **BUILD SUCCESSFUL**,
+     project intact, `SignHap` ok, `entry-default-signed.hap` (247 KB) produced.
+  5. Installed and launched the API 23 HAP on the emulator and captured a
+     screenshot.
+- **Files / areas touched:** `~/ohos/jdk/jdk-17.0.20.1+1` (new JDK),
+  `~/setup-ohos-sdk/linux/20` (new SDK), `HuwaweiChallenge/` (signed HAP built;
+  `build-profile.json5` signingConfigs reverted before any commit),
+  `.opencode/skills/run-openharmony-app/` (`env.sh` + `SKILL.md` updated to
+  require JDK 17), `AI_WORKFLOW.md`. Temporary Node/`fs-extra` instrumentation in
+  `~/ohos/command-line-tools` was reverted.
+- **Output review & validation:** `oniro-app build` → `BUILD SUCCESSFUL`;
+  `oniro-app app install` → `install bundle successfully`; `oniro-app app launch`
+  → `start ability successfully`; `aa dump -l` shows
+  `com.example.huwaweichallenge:entry:EntryAbility` `state #FOREGROUND`.
+  HAP `module.json`: `minAPIVersion: 23`, `targetAPIVersion: 23`,
+  `compileSdkVersion: 6.1.0.31`. Screenshot `/tmp/opencode/hello_api23.jpeg`
+  shows the ArkUI **“Hello World”** screen. The earlier API 18 build
+  (`/tmp/opencode/hello.jpeg`) is superseded.
+- **Problems / failures / dead ends:** (a) The exact failure mode was a
+  destructive SDK bug, not a config error — misdiagnosed at first as an hvigor
+  version mismatch; forcing npm hvigor 6.24.5 did **not** fix it. (b) API 23
+  under Java 27 wipes the project; API 20 under Java 27 did **not** (so the bug
+  is specific to the API 23 packing tool + Java 27). (c) Stale `oh_modules`
+  symlinks from earlier builds broke `CompileArkTS`; fixed with `ohpm install`.
+- **Known limitations:** API 20+ builds require JDK 17 on this machine (system
+  default is Java 27). The team project remains declared at API 23 (satisfies the
+  API 20 minimum); no project source changes were needed. `oniro-app sign`
+  writes an (obfuscated) `signingConfigs` block with passwords into
+  `build-profile.json5`; that change was **reverted** and must not be committed.
+- **Lessons learned:** When a build tool “eats” the project, suspect the
+  external packing tool and its **JVM version**, not just hvigor. The API 23
+  `app_packing_tool.jar` needs **JDK 17** (DevEco’s bundled JBR), not the latest
+  JDK. Keep sources in git and build in scratch copies while diagnosing.
+- **Secrets check:** confirmed no credentials/PII added (the obfuscated signing
+  passwords were reverted and never committed)
+
 <!-- END WORK LOG -->

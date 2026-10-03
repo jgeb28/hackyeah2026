@@ -14,6 +14,7 @@ downstream). Builds and installs go through the `oniro-app` CLI.
 | Thing | Location / value |
 | --- | --- |
 | CLI tools (`hvigorw`, `ohpm`, `hdc`, SDK) | `~/ohos/command-line-tools` (HarmonyOS 5.1.0.840, SDK API 18) |
+| **JDK 17 (required for API 20+ builds)** | `~/ohos/jdk/jdk-17.0.20.1+1` |
 | Toolchain env script | `~/ohos/env.sh` |
 | Oniro App Builder CLI | `~/.local/bin/oniro-app` (`@oniroproject/oniro-app` 0.11.0) |
 | SDK layout expected by `oniro-app` | `~/setup-ohos-sdk/linux/<api>` |
@@ -31,6 +32,9 @@ Convenience wrappers for this skill live in `scripts/`:
 ```bash
 export PATH="$HOME/.local/bin:$HOME/ohos/command-line-tools/bin:$PATH"
 export ONIRO_CMD_TOOLS_PATH="$HOME/ohos/command-line-tools"
+# REQUIRED for API 20+ builds (see the Java 27 pitfall below):
+export JAVA_HOME="$HOME/ohos/jdk/jdk-17.0.20.1+1"
+export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 **Do NOT put the SDK's bundled Node 18 on `PATH`.** `oniro-app` requires
@@ -105,6 +109,13 @@ Read the screenshot with the `read` tool (it renders images) to visually verify.
   `6.1 = API 23`, `6.0 = API 20`. The emulator is API 23; the bundled build SDK
   is API 18 (still runs on the API 23 device). Prefer creating projects with
   `oniro-app create --sdk 20` (or higher) once an SDK is installed.
+- **BUILD AT API 20+ ONLY WITH JDK 17.** Under the system **Java 27**, the API
+  20/23 SDK's `toolchains/lib/app_packing_tool.jar` **deletes the entire project
+  directory** at `PackageHap` (it wipes its own CWD), so the build fails and your
+  source is gone. This is not caused by `oniro-app`. Fix: build with JDK 17
+  (`export JAVA_HOME=$HOME/ohos/jdk/jdk-17.0.20.1+1; export PATH=$JAVA_HOME/bin:$PATH`).
+  Verified: API 23 `assembleHap` succeeds and signs with JDK 17. Always keep
+  project sources recoverable (`git restore`, or build in a scratch copy).
 - **QEMU segfault on startup** means missing Arch split packages. Required:
   `qemu-system-x86 qemu-ui-gtk qemu-ui-sdl qemu-hw-display-virtio-gpu`
   `qemu-hw-display-virtio-gpu-pci qemu-audio-pipewire`.
