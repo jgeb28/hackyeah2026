@@ -1,13 +1,8 @@
-// Smart island: a small pill that expands; "Screenshot" scans the screen for scams.
-import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
-import { hilog } from '@kit.PerformanceAnalysisKit';
+// Smart island: a small pill that expands; "Screenshot" scans the real screen for scams.
 import { ScreenScanner, ScanOutcome } from '../vision/ScreenScanner';
 import { AlertTheme } from '../alert/AlertTheme';
 import { ScanResult, Verdict } from '../trigger/TriggerTypes';
 
-const DOMAIN: number = 0x0A11;
-const TAG: string = 'GuardianIsland';
-const CAPTURE: Permissions = 'ohos.permission.CUSTOM_SCREEN_CAPTURE';
 const IDLE_COLOR: string = '#1C1C1E';
 const SAFE_COLOR: string = '#1E9E5B';
 const PILL_WIDTH_VP: number = 156;
@@ -15,9 +10,10 @@ const PILL_WIDTH_VP: number = 156;
 @Component
 export struct SmartIsland {
   @State expanded: boolean = false;
-  @State phase: string = 'idle'; // idle | scanning | safe | scam
+  @State phase: string = 'idle'; // idle | scanning | safe | scam | error | empty
   @State title: string = 'Guardian';
   @State detail: string = '';
+  @State scanText: string = '';
   @State color: string = IDLE_COLOR;
   /** Called when the user closes the island for good (the small x). */
   onClose: () => void = () => {};
@@ -38,18 +34,9 @@ export struct SmartIsland {
     this.phase = 'idle';
     this.title = 'Guardian';
     this.detail = '';
+    this.scanText = '';
     this.color = IDLE_COLOR;
     this.setExpanded(false);
-  }
-
-  private async ensureCapturePermission(): Promise<void> {
-    try {
-      const ctx: common.UIAbilityContext =
-        this.getUIContext().getHostContext() as common.UIAbilityContext;
-      await abilityAccessCtrl.createAtManager().requestPermissionsFromUser(ctx, [CAPTURE]);
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'capture permission failed: %{public}s', JSON.stringify(err));
-    }
   }
 
   private async scan(): Promise<void> {
@@ -60,31 +47,44 @@ export struct SmartIsland {
     this.phase = 'scanning';
     this.title = 'Scanning the screen...';
     this.detail = '';
+    this.scanText = '';
     this.color = IDLE_COLOR;
     const token: number = ++this.scanToken;
 
-    await this.ensureCapturePermission();
     const outcome: ScanOutcome = await this.scanner.scanOnce();
     if (token !== this.scanToken) {
       // The user closed the island while scanning; drop the result.
       return;
     }
-    const result: ScanResult | null = outcome.result;
-    const prefix: string = outcome.sample.length > 0 ? `(sample: ${outcome.sample}) ` : '';
 
+    if (outcome.error.length > 0) {
+      this.phase = 'error';
+      this.color = IDLE_COLOR;
+      this.title = 'Could not read the screen';
+      this.detail = outcome.error;
+      return;
+    }
+
+    this.scanText = outcome.text;
+    if (outcome.text.length === 0) {
+      this.phase = 'empty';
+      this.color = SAFE_COLOR;
+      this.title = 'No text found';
+      this.detail = 'The captured screen contained no readable text.';
+      return;
+    }
+
+    const result: ScanResult | null = outcome.result;
     if (result === null || result.verdict === Verdict.SAFE) {
       this.phase = 'safe';
       this.color = SAFE_COLOR;
       this.title = 'Looks safe';
-      this.detail = outcome.sample.length > 0
-        ? 'Nothing suspicious in this message.'
-        : 'No scam signs found on this screen.';
+      this.detail = 'No scam signs found on this screen.';
     } else {
       this.phase = 'scam';
       this.color = AlertTheme.colorForSeverity(result.severity ?? 'WARNING');
       this.title = AlertTheme.titleForCategory(result.category);
-      const shown: string = `${prefix}${outcome.text}`;
-      this.detail = shown.length > 150 ? `${shown.substring(0, 150)}...` : shown;
+      this.detail = '';
     }
   }
 
@@ -149,6 +149,29 @@ export struct SmartIsland {
           .lineHeight(17)
           .maxLines(3)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+
+      if (this.scanText.length > 0) {
+        Column({ space: 4 }) {
+          Text(this.phase === 'safe' ? 'Scanned text' : 'Detected text')
+            .fontSize(10)
+            .fontColor('#B3FFFFFF')
+            .width('100%')
+          Scroll() {
+            Text(this.scanText)
+              .fontSize(11)
+              .fontColor('#F2FFFFFF')
+              .lineHeight(15)
+              .width('100%')
+          }
+          .height(92)
+          .width('100%')
+          .scrollBar(BarState.Off)
+        }
+        .width('100%')
+        .padding(8)
+        .backgroundColor('#22000000')
+        .borderRadius(8)
       }
 
       Row({ space: 8 }) {

@@ -9,6 +9,67 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 22:17:00
+**Developer:** s3r10us3r
+
+**Task:** make the floating-island **Screenshot → real on-screen text** path honest,
+and ship **fp16** OCR models. Removed a mock fallback that faked scan text.
+
+#### 1. AI Features
+* **Model/Service:** same PP-OCRv4 det+rec, now **fp16** weights via
+  `converter_lite --fp16=on` (det 4.21→2.12 MB, rec 10.82→5.44 MB; input dtype
+  stays float32). App HAP 15.6→8.2 MB.
+* **Inference Flow:** unchanged pipeline; the `vision/OcrEngine.ets` seam
+  (`CoreVisionOcrEngine` → renamed `ScreenOcrEngine`) now calls the on-device
+  PP-OCRv4 `extractTextFromImage` because Core Vision Kit is HMS-only and absent on
+  OpenHarmony. `ScreenScanner` requests `CUSTOM_SCREEN_CAPTURE` (normal,
+  user_grant) → `screenshot.capture()` → PP-OCRv4 → classifier; the island renders
+  the real recognised text in its expanded card.
+* **Data Handling & Privacy:** on-device only; captured frame released immediately;
+  no network. Removed the bundled-sample/random-text fallbacks so no fabricated
+  text can appear.
+* **Limitations & Validation:** fp16 vs fp32 on host MSLite — det 0.5-mask
+  agreement 99.997%, rec CTC decode identical (`"Youraccounthasbeenlocked."`,
+  0.998); on-device 6/6 lines. **The emulator image has no `ScreenshotService`**
+  (capture → `801`), so the island now shows an explicit "could not capture" error;
+  real capture needs a device.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none new.
+* **Configuration:** MindSpore Lite 2.4.1 `converter_lite`
+  (`--inputDataFormat=NHWC --fp16=on`); `oniro-app build` + `sign --apl system_core
+  --acls ohos.permission.SYSTEM_FLOAT_WINDOW,...`; host `run_ms` + NumPy for
+  fp16↔fp32 parity; `uinput -T -c` for emulator taps.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** keep the `vision/OcrEngine` seam but back it with the
+  real PP-OCRv4 engine so screenshot OCR runs on OpenHarmony.
+* **Implementation:** convert/validate fp16 models, swap into
+  `resources/rawfile/ocr/`; rewrite `ScreenScanner` to drop the mock and surface
+  real errors; extend `SmartIsland` to render the scanned text and an error state.
+* **Key Prompts:** "What is the fastest configuration we can do." → "Do fp16";
+  "the floating island screenshot does not actually scan the text on screen … Do
+  not mock it."
+* **Testing & Debugging:** host MSLite parity scripts; emulator logs
+  (`GuardianScanner scan failed {"code":801}`); confirmed the honest error UI via
+  `snapshot_display`.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer caught the mock fallback in a real messaging-app
+  test; AI removed it and made failures explicit.
+* **Security Checks:** no signing material committed (`build-profile.json5`
+  signingConfigs restored); `.npmrc` git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** presenting a bundled-sample OCR result as a "scan" —
+  a mock that misled testing, deleted. `screenshot.capture()` cannot work on the
+  Oniro emulator image; no app-level alternative exists (`onScreen` is empty stubs).
+* **Lessons Learned:** never let a fallback masquerade as real inference — surface
+  platform errors. fp16 halves model/app size but gives ~no CPU speedup on x86
+  (weights upcast); real speed needs NPU/NNRT.
+
+---
 ## Update: 2026-10-03 21:05:00
 **Developer:** s3r10us3r
 
