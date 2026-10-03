@@ -1,6 +1,34 @@
 # AI Workflow - minerbomb16
 
 ---
+## Update: 2026-10-04 01:16:25
+**Developer:** minerbomb16
+
+#### 1. AI Features
+* **Model/Service:** LAYA on-device via MindSpore Lite; switched the shipped artefact from **fp32 s512** to **`laya_en_w8_s256.ms`** (weight-only int8, 412 MB, sequence 256).
+* **Inference Flow:** unchanged (island screenshot → PP-OCRv4 → text → Laya in worker → `ScanResult` → `IncidentKb` → island card).
+* **Data Handling & Privacy:** offline; model materialised from rawfile into `filesDir` on first scan.
+* **Limitations & Validation:** measured on the 6 GB emulator: **`infer ok: tokens=82 latency=40 073 ms`** vs **fp32 s512 = 151 463 ms** → **3.8× faster**, HAP 1574 → 424 MB, guest RAM 4.5/5.9 GB (no swap). **Caveat:** the verdict moved **CRITICAL → DANGEROUS** (w8/s256 gives an orange WARNING card vs the fp32 red one), so the model must be validated (their `tools/laya/{test_equiv,validate_ms}.py`) before it becomes the trusted default.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** pick the fastest LAYA artefact that actually runs on the x86 emulator.
+* **Implementation:** found 10 variants in `D:\models` (`en|ml` × `fp32|w8|dyn8` × `s256|s512`); tried **`laya_en_dyn8_s512`** first → it **SIGSEGVs** in `libmindspore-lite.so → DynamicGatherInt8CPUKernel::DoGather` (x86 MSP int8 kernel bug); switched to **`laya_en_w8_s256`**, set `InferenceConfig.msModelPath/msFileName`, `quantization.dtype='w8'`, and `laya_guardian_meta.json` `max_len` 512 → 256 (graph input `[3,256]`).
+* **Key Prompts:** "Checkout D:/Models… Let's test with the fastest one"; "a czemu nie przetestujemy w8_s256 skoro oceniasz go jako najlepszy?"; "We need this state on main. Make a pr".
+* **Testing & Debugging:** emulator RAM 6144 (8192 crashed the guest via host OOM → `Kernel panic - sysrq triggered crash`); verified via `hilog` (`GuardianOcr`, `AssetLoader`, `LayaWorker`) and `cppcrash` fault logs; screenshots of the island card.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer chose to ship this state via a PR to `main`.
+* **Security Checks:** no secrets; model `.ms` git-ignored; no network path.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** `laya_en_dyn8_s512.ms` (dynamic int8) crashes inside MindSpore Lite's x86 int8 gather kernel — unusable. 8192 MB emulator RAM is too much for this 15.6 GB host (host OOM → guest kernel panic).
+* **Lessons Learned:** (1) weight-only int8 (`w8`) runs where dynamic int8 (`dyn8`) crashes; (2) the real win came from **fitting in RAM** (no swap) plus the shorter sequence; (3) **quantisation + a shorter window changed the verdict** — always diff the decisions against fp32.
+
+---
 ## Update: 2026-10-04 00:07:51
 **Developer:** minerbomb16
 

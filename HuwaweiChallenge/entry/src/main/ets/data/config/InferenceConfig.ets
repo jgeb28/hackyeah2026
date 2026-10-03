@@ -26,15 +26,15 @@ export interface ModelQuantization {
 export class InferenceConfig {
   // --- On-device artefacts (entry/src/main/resources/rawfile/) --------------
   /** Converted MindSpore Lite graph bundled in rawfile (optional). */
-  msModelPath: string = 'laya_guardian_fp32.ms';
+  msModelPath: string = 'laya_en_w8_s256.ms';
   /** Model file name (same file) in the app sandbox `filesDir` — used for large models. */
-  msFileName: string = 'laya_guardian_fp32.ms';
+  msFileName: string = 'laya_en_w8_s256.ms';
   /** Converter metadata: question prefixes, SEP/PAD ids, max_len. */
   metaPath: string = 'laya_guardian_meta.json';
   /** Hugging Face fast-tokenizer definition (ByteLevel BPE), copied verbatim. */
   tokenizerPath: string = 'tokenizer.json';
 
-  quantization: ModelQuantization = { dtype: 'fp32' };
+  quantization: ModelQuantization = { dtype: 'w8' };
 
   // --- Execution ------------------------------------------------------------
   /** Request the NNRt backend (Kirin NPU); MindSpore Lite falls back to CPU. */
