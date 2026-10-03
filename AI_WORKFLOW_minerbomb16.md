@@ -1,4 +1,62 @@
-# AI Workflow — minerbomb16
+# AI Workflow - minerbomb16
+
+---
+## Update: 2026-10-03 23:45:55
+**Developer:** minerbomb16
+
+#### 1. AI Features
+* **Model/Service:** **LAYA fp32 on-device** via MindSpore Lite, running in an ArkTS **Worker** (`LayaWorker` + `LayaEngineClient`), fully offline (no INTERNET permission).
+* **Inference Flow:** bundled rawfile → `AssetLoader` materialises it to `filesDir` (offset-aware) → worker `loadModelFromFile` → `BpeTokenizer` → `input_ids`/`attention_mask` `[3,512]` → `predict` → `[1,3,5]` logits → verdict in `AnswerPopup`.
+* **Data Handling & Privacy:** text and model stay on device; frame/text never leaves it.
+* **Limitations & Validation:** ✅ **first successful end-to-end run** on the emulator. Verdict: **CRITICAL**, category **scam 93%**, risk 23%, urgency 1.60. `LayaWorker: infer ok: tokens=48 **latency=183135 ms**` (~3 min). Memory saturated (5893/5941 MB, 47 MB free) → the latency is swap-bound, not a code issue.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** get Laya running end-to-end on a local emulator and measure whether the earlier failure was code or memory.
+* **Implementation:** raised the emulator RAM 4096→**6144**; hit `ErrorCode: 00801002` (host C: needed 21.6 GB, had 21.0 GB) and moved the emulator instance store to D: with a junction — then moved a **single** instance (`Pura 90 max`, 6 GB RAM, **12 GB data**) back to C: and rewrote `lists.json`/`config.ini`; verified `free -m` (5941 MB) and `/data` (6.8 GB free); ran the app and monitored memory every 15 s.
+* **Key Prompts:** "zmien emulator na 6gb ramu"; "puściłem tests, monitoruj pamiec"; "przeszło!"
+* **Testing & Debugging:** memory climbed from ~1.8 GB baseline to **~5.9 GB used / 42–81 MB free**; logs showed `model loaded (prefixes=3 maxLen=512)` in 12 s then, after ~3 min, `infer ok: … latency=183135`; screenshot confirms the popup (CRITICAL / scam 93% / 183135 ms).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer ran the test and confirmed the result ("przeszło!").
+* **Security Checks:** no secrets; model artefact git-ignored; no network path.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** 4 GB emulator → `predict` never returned and the system issued `LowMemoryKill`; the earlier main-thread `loadModelFromFd` gave `getInputs() === undefined` (whole-HAP fd, offset ignored).
+* **Lessons Learned:** (1) the rawfile **offset/length** must be honoured when materialising a bundled `.ms`; (2) the ArkTS **Worker** is required so the 1.7 GB load does not trip `THREAD_BLOCK_6S`; (3) **memory is the real limit**: 6 GB completes the inference but takes ~183 s due to swap — the next win is 8 GB RAM or a quantised (int8/q4) artefact.
+
+
+---
+## Update: 2026-10-03 23:14:08
+**Developer:** minerbomb16
+
+#### 1. AI Features
+* **Model/Service:** LAYA fp32 on-device via MindSpore Lite, now running in an ArkTS **Worker** (teammate branch `add_jev` after pulling `feat/laya-ondevice`).
+* **Inference Flow:** bundled rawfile (`offset=106894`, magic `MSL2`) → `AssetLoader` materialises it to `filesDir` (offset-aware) → `LayaWorker.loadModelFromFile` → `predict` in the worker; UI thread only decodes logits.
+* **Data Handling & Privacy:** fully offline, no INTERNET permission; text stays on device.
+* **Limitations & Validation:** on the **4 GB** Huawei emulator the worker **loaded the model in ~5 s** (`model loaded (prefixes=3 maxLen=512)`) but `predict` never returned — the system logged `LowMemoryKill` and killed the session. fp32 (~1.69 GB) does not fit a 4 GB guest.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** decide whether the earlier `model.getInputs() === undefined` was a code bug or a memory problem, and test Laya end-to-end on the existing emulator without changing the machine.
+* **Implementation:** probed the rawfile-fd hypothesis (logged `getRawFdSync` `offset`/`length`); cleaned the branch and fast-forward pulled `origin/add_jev` (`8cd7f8c → 162c40a`) which already contains the fix (offset-aware rawfile→filesDir copy + worker); built and installed the 1.57 GB HAP (model bundled in `rawfile` for the first install) and monitored `free -m`.
+* **Key Prompts:** "dokończ"; "spróbuj narazie bez zmiany maszyny"; "what is the verdict? is it a problem with swap?"
+* **Testing & Debugging:** `t+100 s` Mem **3852/3931 MB used (78 MB free)** → thrashing; `t+200/300 s` fell back to ~1.3 GB used. Logs: `AssetLoader: copied 1686318032 bytes`, `LayaWorker: model loaded (prefixes=3 maxLen=512)`, `Engine ready (fp32)`, then `SCBMain ... LowMemoryKill` ×3 and **no** inference result.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer asked to try on the current machine without changing it.
+* **Security Checks:** offline; no new permissions; model artefact git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** the old main-thread `loadModelFromFd` path yielded `getInputs() === undefined` (invalid model); superseded by the upstream worker + offset-aware copy.
+* **Lessons Learned:** (1) `getRawFdSync` returns the whole HAP — the rawfile `offset`/`length` must be honoured; (2) a correct worker fix still cannot beat physics: a 1.7 GB fp32 model + 4 GB guest = `LowMemoryKill`. Check `free -m`/VmSwap before blaming the model; use ≥6 GB RAM or a smaller quantised artefact.
+
 
 ---
 ## Update: 2026-10-03 15:13:16
