@@ -11,6 +11,10 @@ BuildProfile.ets
 *.har
 *.abc
 
+# --- Local-only tooling (kept on disk, not committed) ---
+.opencode/
+tests/*.sh
+
 # --- Local toolchain configuration (contains absolute paths) ---
 local.properties
 **/local.properties

@@ -9,6 +9,19 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-03 17:20:14
+**Developer:** s3r10us3r
+
+#### 3. Development Workflow & Prompts
+* **Repo cleanup (review feedback):** the only Python in the repo was `vnccap.py` (a dependency-free VNC screenshot client for the local emulator tooling; nothing in the app/tests uses Python). Per the reviewer's instruction ("project code only"), **untracked all `.py`/`.sh`** from the repo and kept them locally — the `.opencode/` emulator/run tooling and the `tests/run*.sh` runners — adding `.opencode/` and `tests/*.sh` to `.gitignore`. Test **code** stays in `tests/unit/*.test.ts` (+ `tsconfig.tests.json`) and `entry/src/ohosTest`; DESIGN §13/§17 now give direct `tsc` / `node --test` / `aa test` commands instead of wrapper scripts.
+
+#### 4. Review & Validation
+* **Validation evidence:** behavior unchanged — unit 16/16, on-device `ohosTest` 3/3; only scripts, `.gitignore`, and docs changed.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** keep the committed repo to platform project code + tests; keep machine/emulator helpers on disk (git-ignored) rather than in the PR.
+
+---
 ## Update: 2026-10-03 17:17:17
 **Developer:** s3r10us3r
 
