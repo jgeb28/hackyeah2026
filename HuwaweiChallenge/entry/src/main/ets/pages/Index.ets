@@ -64,6 +64,14 @@ struct Index {
         .onClick(() => {
           router.pushUrl({ url: 'pages/IncidentDetail' });
         })
+
+      Button('Open Laya demo')
+        .fontSize(15)
+        .width(240)
+        .height(44)
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/LayaDemo' });
+        })
     }
     .width('100%')
     .height('100%')

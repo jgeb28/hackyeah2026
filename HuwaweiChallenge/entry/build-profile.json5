@@ -1,6 +1,11 @@
 {
   "apiType": "stageMode",
   "buildOption": {
+    "sourceOption": {
+      "workers": [
+        "./src/main/ets/workers/LayaWorker.ets"
+      ]
+    },
     "resOptions": {
       "copyCodeResource": {
         "enable": false

@@ -1,4 +1,5 @@
 // Smart island: a small pill that expands; "Screenshot" scans the real screen for scams.
+import { IncidentKb, Incident } from '../alert/IncidentKb';
 import { ScreenScanner, ScanOutcome } from '../vision/ScreenScanner';
 import { AlertTheme } from '../alert/AlertTheme';
 import { ScanResult, Verdict } from '../trigger/TriggerTypes';
@@ -57,6 +58,7 @@ export struct SmartIsland {
       return;
     }
 
+    this.scanText = outcome.text;
     if (outcome.error.length > 0) {
       this.phase = 'error';
       this.color = IDLE_COLOR;
@@ -65,7 +67,6 @@ export struct SmartIsland {
       return;
     }
 
-    this.scanText = outcome.text;
     if (outcome.text.length === 0) {
       this.phase = 'empty';
       this.color = SAFE_COLOR;
@@ -83,8 +84,14 @@ export struct SmartIsland {
     } else {
       this.phase = 'scam';
       this.color = AlertTheme.colorForSeverity(result.severity ?? 'WARNING');
-      this.title = AlertTheme.titleForCategory(result.category);
-      this.detail = '';
+      const incident: Incident | null = IncidentKb.forCategory(result.category);
+      if (incident !== null) {
+        this.title = incident.title;
+        this.detail = `${incident.explanation} ${incident.remediation.join(' ')}`;
+      } else {
+        this.title = AlertTheme.titleForCategory(result.category);
+        this.detail = '';
+      }
     }
   }
 

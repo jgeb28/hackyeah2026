@@ -4,6 +4,7 @@ import { notificationManager } from '@kit.NotificationKit';
 import { window } from '@kit.ArkUI';
 import { AlertOverlay } from '../alert/AlertOverlay';
 import { AlertTheme } from '../alert/AlertTheme';
+import { IncidentKb } from '../alert/IncidentKb';
 import { IslandOverlay } from '../alert/IslandOverlay';
 import { InAppSdkSource } from '../sdk/InAppSdkSource';
 import { ScanJob } from '../trigger/IngestSource';
@@ -24,6 +25,7 @@ export default class EntryAbility extends UIAbility {
     // Interception pipeline: observe SDK reports, classify, alert (overlay + notification).
     AlertOverlay.setContext(this.context);
     AlertTheme.load(this.context);
+    IncidentKb.load(this.context);
     IslandOverlay.setContext(this.context);
     this.source.start((job: ScanJob) => {
       TriggerEngine.get().onReport(job.bundleName, job.text, job.category, job.severity, TriggerSource.SDK);
