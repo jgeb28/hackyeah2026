@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
-    "pages/TriggerDemo"
+    "pages/TriggerDemo",
+    "pages/SentinelOverlay"
   ]
 }

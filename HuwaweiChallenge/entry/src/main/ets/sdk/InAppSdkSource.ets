@@ -40,7 +40,9 @@ export class InAppSdkSource implements IngestSource {
           bundleName: report.bundleName,
           text: report.text,
           messageId: report.messageId,
-          timestampMs: report.timestampMs ?? Date.now()
+          timestampMs: report.timestampMs ?? Date.now(),
+          category: report.category,
+          severity: report.severity
         };
         if (this.emit !== null) {
           this.emit(job);

@@ -49,13 +49,34 @@ export class TriggerEngine {
     return result;
   }
 
+  /** Trigger from an incident report: category/severity from the KB drive the result. */
+  onReport(bundleName: string, text: string, category: string | undefined, severity: string | undefined,
+    source: TriggerSource): ScanResult | null {
+    if (!this.policy.decide(text)) {
+      return null;
+    }
+    const now: number = Date.now();
+    this.scanCount++;
+    const request: ScanRequest = { bundleName, source, text, timestampMs: now };
+    const result: ScanResult = TriggerEngine.fromIncident(category, severity);
+    this.handle(request, result);
+    return result;
+  }
+
+  private static fromIncident(category: string | undefined, severity: string | undefined): ScanResult {
+    const sev: string = severity ?? 'WARNING';
+    const verdict: Verdict = sev === 'CRITICAL' ? Verdict.CRITICAL : Verdict.DANGEROUS;
+    return { verdict, category: category ?? 'scam', confidence: 1, signals: [], severity: sev };
+  }
+
   /** React to a verdict (DESIGN.md §10: local notification via the sink). */
   private handle(request: ScanRequest, result: ScanResult): void {
-    const action: string = result.verdict === Verdict.SAFE ? 'none' : 'ALERT';
+    const alert: boolean = result.severity !== undefined || result.verdict !== Verdict.SAFE;
+    const action: string = alert ? 'ALERT' : 'none';
     const line: string =
       `trigger #${this.scanCount} via=${request.source} bundle=${request.bundleName} ` +
-      `chars=${request.text.length} => ${result.verdict}/${result.category} action=${action}`;
-    if (action === 'ALERT') {
+      `chars=${request.text.length} => ${result.verdict}/${result.category} sev=${result.severity ?? '-'} action=${action}`;
+    if (alert) {
       hilog.warn(DOMAIN, TAG, line);
       this.alertSink.alert(result, request.text, request.source);
     } else {
