@@ -11,6 +11,22 @@
     {
       "name": "EntryAbility_label",
       "value": "label"
+    },
+    {
+      "name": "accessibility_description",
+      "value": "Guardian watches the messaging app and runs an on-device safety check whenever text is rendered."
+    },
+    {
+      "name": "accessibility_label",
+      "value": "Guardian Safety Service"
+    },
+    {
+      "name": "demo_desc",
+      "value": "Guardian trigger demo"
+    },
+    {
+      "name": "demo_label",
+      "value": "Guardian demo"
     }
   ]
 }

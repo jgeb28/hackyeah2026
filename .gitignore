@@ -4,6 +4,8 @@
 **/.hvigor/
 .hvigor/
 /hvigor/
+BuildProfile.ets
+**/BuildProfile.ets
 *.hap
 *.hsp
 *.har
@@ -27,6 +29,9 @@ signatures/
 # --- Logs & temp ---
 *.log
 *.tmp
+
+# --- Device-free unit-test build output (tests/run.sh) ---
+.test-build/
 
 # --- Editor / OS ---
 .DS_Store

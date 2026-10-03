@@ -1,0 +1,11 @@
+{
+  "module": {
+    "name": "guardian_sdk",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "phone",
+      "tablet"
+    ]
+  }
+}

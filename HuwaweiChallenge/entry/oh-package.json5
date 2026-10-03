@@ -5,5 +5,7 @@
   "main": "",
   "author": "",
   "license": "",
-  "dependencies": {}
+  "dependencies": {
+    "@hackyeah/guardian_sdk": "file:../guardian_sdk"
+  }
 }
