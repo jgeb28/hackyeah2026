@@ -277,5 +277,16 @@ working tree into a commit or PR.
   build helpers stay **local and git-ignored**. The repo holds project code,
   tests, and docs only.
 
+---
+
+## 10. Pull requests — humans merge, agents do not
+
+- Agents may create branches, commit, push, and open or update pull requests.
+- Agents must **never merge a PR** (nor close one) on their own. Opening a PR
+  means **hand it back** to the developer for review and merge.
+- Do **not** push directly to `main` (or any protected branch) unless the human
+  explicitly instructs it for that specific change.
+- After opening a PR, stop and report the PR link plus what was built/tested.
+
 _If any instruction here conflicts with the official challenge rules, the
 challenge rules win — update this file to match them._
