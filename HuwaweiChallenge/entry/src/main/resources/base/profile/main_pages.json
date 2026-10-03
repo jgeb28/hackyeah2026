@@ -5,6 +5,7 @@
     "pages/SentinelOverlay",
     "pages/FloatingIsland",
     "pages/OcrDemo",
-    "pages/IncidentDetail"
+    "pages/IncidentDetail",
+    "pages/LayaDemo"
   ]
 }
