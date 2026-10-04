@@ -22,14 +22,12 @@ While assisting with development, you must silently keep track of the following 
 
 ---
 
-## On-Demand Generation: User-Specific Workflow Files
-When the user asks you to "Generate the AI Workflow file" or "Finalize documentation," you must first check the local environment for the current Git user (e.g., by executing `git config user.name`). 
-
-You must create or append to a user-specific file named **`AI_WORKFLOW_[git-username].md`** (formatting the username to lowercase and replacing spaces with hyphens, e.g., `AI_WORKFLOW_jane-doe.md`). 
+## On-Demand Generation: Team Workflow File
+When the user asks you to "Generate the AI Workflow file" or "Finalize documentation," write to the single team file **`HuwaweiChallenge/AI_WORKFLOW.md`**. There are **no** per-developer `AI_WORKFLOW_*.md` files.
 
 Every time you write or update this file, you must prepend the entry with the current timestamp.
 
-### Template for `AI_WORKFLOW_[git-username].md`
+### Update template
 
 ---
 ## Update: [YYYY-MM-DD HH:MM:SS]
