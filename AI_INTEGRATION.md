@@ -121,8 +121,10 @@ incidents (`escalation` L1/L2) the app can additionally offer a plain-language
    KB (`alert/IncidentKb`) supplies the title / category / severity, and the island
    shows its explanation and next steps (or the Details page).
 
-**Privacy:** the text is read from the screen and processed in memory; nothing is
-transmitted. The only storage is the optional local detection log (DESIGN.md §10).
+**Privacy:** the text is read from the screen and processed in memory; the core flow
+transmits and persists nothing. The only network path is the opt-in DeepSeek
+"Describe" action (§4), which sends the selected text only when the user triggers it.
+(A local detection log is described in DESIGN.md §6/§10 but is **not implemented**.)
 
 ## 6. On-device model contract (what the `.ms` exposes)
 

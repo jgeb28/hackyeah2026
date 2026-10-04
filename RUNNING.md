@@ -31,8 +31,8 @@ Tap the pill → **Select area** → a full-screen dim overlay (`SelectorOverlay
 `pages/SelectArea`) appears → **drag a box** around the text → **Scan this area**.
 Guardian then: `screenshot.capture()` (whole display) → **crop to the box**
 (`PixelMap.crop`, vp→px) → **on-device PP-OCRv4** (`ets/ocr/`) → **classify**
-(`vision/LayaClassifier` → LAYA) → map the category to an **incident**
-(`alert/IncidentKb.forText`, keyword-matched) → show it. The captured `PixelMap` is
+(`vision/LayaClassifier` → LAY A; the model returns the verdict **and the incident id**)
+→ the incident is looked up by id (`alert/IncidentKb.forId`) → show it. The captured `PixelMap` is
 released right after OCR; the image is never kept. The island is hidden from the
 capture (`setWindowPrivacyMode`).
 
@@ -44,8 +44,9 @@ matters / What to do*.
 
 HarmonyOS Core Vision Kit OCR is not available on emulators, so Guardian ships its
 own **PP-OCRv4** models (det + rec) converted to MindSpore Lite and run via
-`@kit.MindSporeLiteKit`; this works on the emulator (CPU). LAYA runs the same way
-(`entry/src/main/resources/rawfile/*.ms`, git-ignored — provision separately).
+`@kit.MindSporeLiteKit`; this works on the emulator (CPU). LAY A runs the same way —
+its `.ms` is **not in the repo** (over GitHub's size limit) and is fetched from
+Hugging Face (see the README *Assets* section and `build.ps1`/`build.py`).
 
 ## Prerequisites
 
