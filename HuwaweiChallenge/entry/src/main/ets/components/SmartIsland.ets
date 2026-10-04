@@ -48,18 +48,14 @@ export struct SmartIsland {
     return phase === 'safe' || phase === 'scam' || phase === 'empty' || phase === 'error';
   }
 
-  /** Close: collapse to the pill, keeping the result so the pill stays coloured. */
+  /** Close: back to the plain, neutral pill (the result is acknowledged). */
   private minimize(): void {
-    // Only a scan in flight is cancelled. The small x is the sole way back to a
-    // neutral pill (it destroys the window).
-    if (this.phase === 'scanning') {
-      this.scanToken++;
-      this.phase = 'idle';
-      this.title = 'Guardian';
-      this.detail = '';
-      this.incidentJson = '';
-      this.color = IDLE_COLOR;
-    }
+    this.scanToken++;
+    this.phase = 'idle';
+    this.title = 'Guardian';
+    this.detail = '';
+    this.incidentJson = '';
+    this.color = IDLE_COLOR;
     this.setExpanded(false);
   }
 
@@ -86,39 +82,37 @@ export struct SmartIsland {
       this.color = IDLE_COLOR;
       this.title = 'Could not read the screen';
       this.detail = outcome.error;
-      return;
-    }
-
-    if (outcome.text.length === 0) {
+    } else if (outcome.text.length === 0) {
       this.phase = 'empty';
       this.color = SAFE_COLOR;
       this.title = 'No text found';
       this.detail = 'The captured screen contained no readable text.';
-      return;
-    }
-
-    const result: ScanResult | null = outcome.result;
-    if (result === null || result.verdict === Verdict.SAFE) {
-      this.phase = 'safe';
-      this.color = SAFE_COLOR;
-      this.title = 'Looks safe';
-      this.detail = '';
     } else {
-      this.phase = 'scam';
-      const incident: Incident | null = IncidentKb.forText(outcome.text, result.category);
-      if (incident !== null) {
-        // UI severity comes from the incident (DESIGN §18), not the raw verdict.
-        this.color = AlertTheme.colorForSeverity(incident.severity);
-        this.title = incident.title;
-        this.detail = `${incident.explanation} ${incident.remediation.join(' ')}`;
-        this.incidentJson = JSON.stringify(incident);
-      } else {
-        this.color = AlertTheme.colorForSeverity(result.severity ?? 'WARNING');
-        this.title = AlertTheme.titleForCategory(result.category);
+      const result: ScanResult | null = outcome.result;
+      if (result === null || result.verdict === Verdict.SAFE) {
+        this.phase = 'safe';
+        this.color = SAFE_COLOR;
+        this.title = 'Looks safe';
         this.detail = '';
-        this.incidentJson = '';
+      } else {
+        this.phase = 'scam';
+        const incident: Incident | null = IncidentKb.forText(outcome.text, result.category);
+        if (incident !== null) {
+          // UI severity comes from the incident (DESIGN §18), not the raw verdict.
+          this.color = AlertTheme.colorForSeverity(incident.severity);
+          this.title = incident.title;
+          this.detail = `${incident.explanation} ${incident.remediation.join(' ')}`;
+          this.incidentJson = JSON.stringify(incident);
+        } else {
+          this.color = AlertTheme.colorForSeverity(result.severity ?? 'WARNING');
+          this.title = AlertTheme.titleForCategory(result.category);
+          this.detail = '';
+          this.incidentJson = '';
+        }
       }
     }
+    // Show the result as a coloured pill; the user taps it to expand the card.
+    this.setExpanded(false);
   }
 
   @Builder

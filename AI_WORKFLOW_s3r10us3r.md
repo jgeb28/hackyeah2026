@@ -9,6 +9,28 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 03:33:22
+**Developer:** s3r10us3r
+
+**Task:** pill behaviour — result shows as a coloured pill; expanding then closing returns it to default.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Behaviour:** `scan()` now collapses on completion (`setExpanded(false)`) so the result shows as a **coloured pill** (severity colour + title); tapping the pill expands the card; `minimize()` (Close) resets to the plain **neutral** pill (original behaviour). ✕ still destroys the window.
+* **Key Prompts:** "the pill should come back to default color when expanded and then closed."
+* **Testing & Debugging (screenshots):** scan the mock's parcel post → **orange pill "Possible …"**; tap → card → **Close** → **neutral pill "Guardian"**. `assembleHap` BUILD SUCCESSFUL; installed.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review; pushed to PR #19.
+* **Security Checks:** no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** distinguishing "result indicator" (coloured pill) from "acknowledged" (default pill after Close) reconciles a coloured pill with a neutral reset.
+
+---
 ## Update: 2026-10-04 03:29:30
 **Developer:** s3r10us3r
 
