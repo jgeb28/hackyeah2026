@@ -4,7 +4,7 @@ import {
   encodeReport,
   decodeReport,
   GUARDIAN_MESSAGE_EVENT
-} from '../../HuwaweiChallenge/guardian_sdk/src/main/ets/GuardianProtocol';
+} from '../../HuaweiChallenge/guardian_sdk/src/main/ets/GuardianProtocol';
 
 test('the event name is a stable contract', () => {
   assert.equal(GUARDIAN_MESSAGE_EVENT, 'com.hackyeah.guardian.MESSAGE_RENDERED');

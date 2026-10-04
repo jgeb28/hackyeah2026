@@ -6,6 +6,6 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "@hackyeah/guardian_sdk": "file:../../../HuwaweiChallenge/guardian_sdk"
+    "@hackyeah/guardian_sdk": "file:../../../HuaweiChallenge/guardian_sdk"
   }
 }

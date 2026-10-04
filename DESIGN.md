@@ -129,7 +129,11 @@ app" vision. Not reachable by a third-party HarmonyOS app today.
   the accessibility extension, or restricted permissions in the shipping build.
 - **No silent screen reading.** The screen is read only on an explicit,
   user-consented capture (Phase 2).
-- No drawing over other apps (`SYSTEM_FLOAT_WINDOW`), no privileged permissions.
+- **A floating window, with an ACL.** The shipping UI is a `TYPE_FLOAT` window
+  (`ohos.permission.SYSTEM_FLOAT_WINDOW`, `system_basic`), which requires it to be
+  listed in the signing profile's `acls.allowed-acls` (§12). No *other* restricted
+  permissions are used (no accessibility extension, no `SUBSCRIBE_NOTIFICATION`, no
+  `CAPTURE_SCREEN`).
 - No auto-remediation (blocking, paying, replying, closing apps).
 - General-purpose malware/URL reputation scanning is out of scope for v1.
 - Non-text content (images/video) beyond the OCR path.
@@ -147,7 +151,7 @@ blocking the build.
 | Requirement | Value / note |
 | --- | --- |
 | Language / UI | ArkTS / ArkUI, stage model |
-| Min API | **API 20** (HarmonyOS target); the dev/CI build compiles against the DevEco **HarmonyOS** SDK (`6.1.1(24)`) |
+| Min API | **API 20** (`compatibleSdkVersion 6.0.0(20)`); the dev/CI build compiles against the DevEco **HarmonyOS** SDK (`6.1.1(24)`) |
 | IDE / SDK | DevEco Studio with the **HarmonyOS** SDK; built with `hvigorw` and installed with `hdc` on the HarmonyOS phone emulator |
 | JDK | 17 (required for API 20+) |
 | Node.js | ≥ 20 (Hvigor build tooling) |
@@ -159,11 +163,12 @@ blocking the build.
 | --- | --- |
 | Debug signing | DevEco Studio **automatic signing**: a Huawei developer account with App/AppGallery admin role, the `bundleName` registered in **AppGallery Connect (AGC)**, and a connected device/emulator |
 | Release signing (later) | AGC **release certificate + Profile** (`.cer` / `.p7b`), manual signing in DevEco |
-| System / restricted signing | **Not required and not assumed.** No system-app signing, no ACL, no restricted permissions |
+| System / restricted signing | **No system-app signing**, but an **ACL** is required for `ohos.permission.SYSTEM_FLOAT_WINDOW` (`system_basic`): the island's `TYPE_FLOAT` window is listed in the signing profile's `acls.allowed-acls`. DevEco adds it to the debug profile; a store release needs a Huawei-approved profile (see §12) |
 
-> Because the shipping build uses only normal + user-granted permissions, standard
-> DevEco signing is sufficient. Restricted (`system_basic`) permissions are
-> explicitly **out of scope** (§16 covers the system-access variant).
+> The core flows use only normal / user-granted permissions, but the floating island
+> needs `SYSTEM_FLOAT_WINDOW` (`system_basic`), so the signing profile must carry an
+> ACL for it. No **system-app** signing (APL `system_basic` / `ohos_system_app`) is
+> assumed; the system-access variant remains out of scope (§16).
 
 ### 4.3 Runtime & device prerequisites
 
@@ -197,8 +202,9 @@ blocking the build.
 No system-app signing (APL `system_basic` / `ohos_system_app`), no
 `ohos.permission.WRITE_ACCESSIBILITY_CONFIG`, no
 `ohos.permission.ACCESSIBILITY_EXTENSION_ABILITY`, no
-`ohos.permission.SUBSCRIBE_NOTIFICATION`, and no AGC restricted-permission (ACL)
-approval. These belong to the intended design (§16) and are not needed to ship.
+`ohos.permission.SUBSCRIBE_NOTIFICATION`; no AGC restricted-permission approval
+beyond the `SYSTEM_FLOAT_WINDOW` ACL (§12). These system-access capabilities belong
+to the intended design (§16) and are not needed to ship.
 
 ---
 
@@ -220,7 +226,7 @@ drive the shipping architecture.
 | **Notification listening** (read others' notifications) | `NotificationSubscriberExtensionAbility` | ❌ **No** (for third-party) | Requires `ohos.permission.SUBSCRIBE_NOTIFICATION` = `system_basic` / provision-gated (documented for wearable/companion apps). |
 | **Accessibility text-render** (any app's UI) | `AccessibilityExtensionAbility` | ❌ **No** (for third-party) | `onAccessibilityEvent/onKeyEvent` `@deprecated since API 12`; capability closed. |
 | **System-app status** | APL `system_basic` / `ohos_system_app` | ❌ **No** (for third-party) | Reserved for Huawei-signed system apps. |
-| **Draw a window over other apps** | `window.TYPE_FLOAT` | ❌ No | Requires `ohos.permission.SYSTEM_FLOAT_WINDOW` (system). |
+| **Draw a window over other apps** | `window.TYPE_FLOAT` | ⚠️ **Yes, with ACL** | Requires `ohos.permission.SYSTEM_FLOAT_WINDOW` (`system_basic`); must be listed in the signing profile's `acls.allowed-acls`. Used by the shipping island and region selector. |
 | `@ohos.data.intelligence` | system on-device AI (API 15+) | ⚠️ Device-dependent | We bundle our own `.ms` models instead, so behaviour is identical everywhere. |
 
 **Design consequences**
@@ -559,16 +565,19 @@ sender impersonating family", "unsourced emotional claim") rather than just a sc
 
 | Permission / capability | Why | Build |
 | --- | --- | --- |
-| — (none) for A1 SDK ingress | Host app reports text it already owns | Shipping |
+| `ohos.permission.SYSTEM_FLOAT_WINDOW` (`system_basic`) | Camera-anchored floating island + region selector (`TYPE_FLOAT`) | Shipping (**requires ACL**) |
+| `ohos.permission.CUSTOM_SCREEN_CAPTURE` (`normal`, `user_grant`) + system consent dialog | Screen capture → OCR (still capture) | Shipping |
+| `ohos.permission.KEEP_BACKGROUND_RUNNING` (`normal`) + `backgroundModes` | Keep the capture/scan session alive | Shipping |
 | Notification publish (`@ohos.notificationManager`, user-enabled) | Post the alert notification | Shipping |
-| `ohos.permission.VIBRATE` (optional) | Haptic alert | Shipping |
-| `ohos.permission.CUSTOM_SCREEN_CAPTURE` (`normal`, `user_grant`) + system consent dialog | Phase 2 screen capture → OCR (still capture) | **Phase 2** |
-| `ohos.permission.KEEP_BACKGROUND_RUNNING` + `backgroundModes` (continuous task) | Phase 2 continuous `AVScreenCapture` (real device) | **Phase 2** |
+| `ohos.permission.INTERNET` (`normal`, optional) | Dev "Remote GPU" backend and the user-enabled DeepSeek "Describe" action | Optional |
 
-**No system or restricted permissions** in the shipping build (no
-`SYSTEM_FLOAT_WINDOW`, no accessibility extension, no `SUBSCRIBE_NOTIFICATION`, no
-`system_basic`). Since all permissions are normal/user-granted, standard DevEco
-signing is sufficient. Absent capabilities degrade honestly.
+**One restricted permission.** The floating island needs
+`ohos.permission.SYSTEM_FLOAT_WINDOW` (`system_basic`), so the build requires a
+signing profile that declares it in `acls.allowed-acls` (DevEco can do this for a
+debug profile; a store release needs a Huawei-approved profile). No accessibility
+extension, no `SUBSCRIBE_NOTIFICATION`, no `CAPTURE_SCREEN`. The core product is
+offline; `INTERNET` is present only for the optional dev/cloud paths and can be
+removed for a strictly offline build. Absent capabilities degrade honestly.
 
 ---
 
@@ -734,7 +743,7 @@ user-enabled and visible; Guardian remains advisory-only and on-device by defaul
 
 | Area | Path |
 | --- | --- |
-| SDK HAR `@hackyeah/guardian_sdk` | `HuwaweiChallenge/guardian_sdk/` |
+| SDK HAR `@hackyeah/guardian_sdk` | `HuaweiChallenge/guardian_sdk/` |
 | SDK client / wire contract | `guardian_sdk/src/main/ets/GuardianClient.ets`, `GuardianProtocol.ts` |
 | Island window | `entry/src/main/ets/alert/IslandOverlay.ets`, `pages/FloatingIsland.ets` |
 | Island UI | `entry/src/main/ets/components/SmartIsland.ets` |
@@ -906,9 +915,10 @@ misinformation dataset** and defining the label/decision format.
 - Excluded for third-party HarmonyOS: `@ohos.application.AccessibilityExtensionAbility`
   (`@deprecated since 12`; `ACCESSIBILITY_EXTENSION_ABILITY` = `system_basic`),
   `@ohos.application.NotificationSubscriberExtensionAbility`
-  (`SUBSCRIBE_NOTIFICATION` = `system_basic`), `window.TYPE_FLOAT`
-  (`SYSTEM_FLOAT_WINDOW` = system), `NotificationSystemLiveViewContent`
-  (system-only; third-party path is HMS Live View Kit).
+  (`SUBSCRIBE_NOTIFICATION` = `system_basic`), `NotificationSystemLiveViewContent`
+  (system-only; third-party path is HMS Live View Kit). `window.TYPE_FLOAT`
+  (`SYSTEM_FLOAT_WINDOW` = `system_basic`) is **used**, via an ACL-enabled signing
+  profile (see §12).
 - Intended/final design (§16): `@ohos.accessibility.config.enableAbility`
   (`WRITE_ACCESSIBILITY_CONFIG` = `system_basic`, ACL-disabled) +
   `AccessibilityExtensionContext.getWindowRootElement()`; permissive APL/system

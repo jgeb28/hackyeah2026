@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIncident, SAMPLE_INCIDENT_JSON } from '../../HuwaweiChallenge/entry/src/main/ets/detail/DetailTypes';
+import { parseIncident, SAMPLE_INCIDENT_JSON } from '../../HuaweiChallenge/entry/src/main/ets/detail/DetailTypes';
 
 test('parseIncident reads the KB incident shape', () => {
   const doc = parseIncident(SAMPLE_INCIDENT_JSON);

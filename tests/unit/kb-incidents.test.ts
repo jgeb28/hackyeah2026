@@ -21,7 +21,7 @@ interface Kb {
   incidents: Incident[];
 }
 
-const KB_PATH = resolve(__dirname, '../../../HuwaweiChallenge/entry/src/main/resources/rawfile/kb/en/incidents.json');
+const KB_PATH = resolve(__dirname, '../../../HuaweiChallenge/entry/src/main/resources/rawfile/kb/en/incidents.json');
 const kb = JSON.parse(readFileSync(KB_PATH, 'utf8')) as Kb;
 const SEVERITIES = ['CRITICAL', 'WARNING', 'INFO'];
 const ESCALATIONS = ['L0', 'L1', 'L2'];

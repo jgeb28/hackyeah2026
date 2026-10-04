@@ -19,7 +19,7 @@ privacy) is a separate concern and is documented in
 build scripts, and reorganize the docs.
 
 #### 1. AI Features
-* **Model/Service:** fine-tuned LAY A (ModernBERT-large + 2-layer head, 421 M; 26.5 M trainable, frozen encoder) with two baked questions — `deception` (safe/deceptive) + `incident` (8 KB ids). OCR: PP-OCRv4 det+rec on MindSpore Lite. Optional DeepSeek "Describe" via a backend (key server-side).
+* **Model/Service:** fine-tuned LAY A (ModernBERT-large + 2-layer head, 421 M; 26.5 M trainable, frozen encoder) with two baked questions — `deception` (safe/deceptive) + `incident` (8 KB ids). OCR: PP-OCRv4 det+rec on MindSpore Lite. Optional DeepSeek "Describe": direct call with the user's own key, stored on-device (no Guardian server).
 * **Inference Flow:** screen capture → OCR → tokenize → one batched graph forward → temperature-scaled logits → `P(deceptive)` vs the gate thresholds → incident lookup. Offline by default.
 * **Data Handling & Privacy:** on-device, in-memory; nothing transmitted; frame released after OCR; training data lives outside the repo.
 * **Limitations & Validation:** deception AUC 0.930 (5-fold CV); shipped gate 0.25 (~7% FNR / 27% FPR); incident macro-F1 ≈ 0.33 (rule-derived labels; display only).
@@ -56,11 +56,9 @@ We built the whole project with **OpenCode** agents running
   the **`opencode`** skill for configuration questions.
 - We used **no MCP servers**.
 
-Every agent worked under the repo's [`AGENTS.md`](./AGENTS.md) and
-[`HuwaweiChallenge/AGENTS.md`](./HuwaweiChallenge/AGENTS.md): keep the workflow
-honest and timestamped, commit only task-relevant files, never put secrets or
-scripts in the repo, and **never merge a pull request** — a human always did
-that.
+Every agent worked under the repo's [`AGENTS.md`](./AGENTS.md): commit only
+task-relevant files, never put secrets or scripts in the repo, and **never merge a
+pull request** — a human always did that.
 
 ## How we worked with the agents
 

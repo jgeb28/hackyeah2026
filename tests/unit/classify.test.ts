@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyText } from '../../HuwaweiChallenge/entry/src/main/ets/trigger/Classify';
-import { Verdict } from '../../HuwaweiChallenge/entry/src/main/ets/trigger/TriggerTypes';
+import { classifyText } from '../../HuaweiChallenge/entry/src/main/ets/trigger/Classify';
+import { Verdict } from '../../HuaweiChallenge/entry/src/main/ets/trigger/TriggerTypes';
 
 test('benign text is SAFE with no signals', () => {
   const r = classifyText('hey, are we still on for lunch tomorrow?');

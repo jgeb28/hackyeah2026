@@ -26,7 +26,7 @@ key is never shipped (see *Optional cloud*).
 
 | Path | Contents |
 | --- | --- |
-| `HuwaweiChallenge/` | Guardian app (`entry/`) + `guardian_sdk/` HAR |
+| `HuaweiChallenge/` | Guardian app (`entry/`) + `guardian_sdk/` HAR |
 | `mocks/mockchat/` | WeChat-like host app that reports messages via the SDK |
 | `facebook-feed-mock/` | static web feed used to demo the screen scan |
 | `tests/unit/` | device-free unit tests (`node --test`) |
@@ -40,7 +40,7 @@ key is never shipped (see *Optional cloud*).
 
 | Tool | Version / note |
 | --- | --- |
-| DevEco Studio + HarmonyOS SDK | `6.1.1(24)` (project `compileSdkVersion`), `compatibleSdkVersion 6.1.0(23)`, minimum API 20 |
+| DevEco Studio + HarmonyOS SDK | `6.1.1(24)` (project `compileSdkVersion`), `compatibleSdkVersion 6.0.0(20)` — **minimum API 20** |
 | JDK | **17** on `PATH` (the package step shells out to `java`) |
 | Node.js | ≥ 20 (DevEco's bundled `tools/node` works) |
 | Device | a HarmonyOS/OpenHarmony emulator or device visible to `hdc` |
@@ -63,10 +63,11 @@ hosted on **Hugging Face** at
 (the LAY A `.ms` + metadata + tokenizer and the PP-OCRv4 `.ms` all live there). Drop
 them into the rawfile dir:
 
-- **A. Fetch it (recommended):** `fetch_model.py` (distributed with the release
-  assets; `tools/` stays out of the repo per `AGENTS.md` §9) downloads every model
-  asset from the HF repo straight into `rawfile/` and verifies the `MSL2` magic and
-  byte size:
+- **A. Let the build fetch it (recommended):** `build.ps1` / `build.sh` / `build.py`
+  download the missing `.ms` from the HF repo before building. To manage the models
+  yourself, use `fetch_model.py` (distributed with the release assets; `tools/` stays
+  out of the repo per `AGENTS.md` §9), which downloads every model asset into
+  `rawfile/` and verifies the `MSL2` magic and byte size:
   ```powershell
   python tools/fetch_model.py --out-dir .        # or --repo <org>/<name>, HF_TOKEN=...
   ```
@@ -74,7 +75,7 @@ them into the rawfile dir:
   ```powershell
   $URL = "https://huggingface.co/s3r10us3r/LAYA-hackyeah2026/resolve/main/laya_en_w8_s256.ms"
   Invoke-WebRequest -Uri $URL -OutFile `
-      "HuwaweiChallenge/entry/src/main/resources/rawfile/laya_en_w8_s256.ms"
+      "HuaweiChallenge/entry/src/main/resources/rawfile/laya_en_w8_s256.ms"
   ```
   To re-host: `hf upload <org>/<repo> <file>` (or a GitHub Release, ≤ 2 GB).
 - **B. Build it:** the converter (`convert_laya.py`, kept out of the repo) runs on
@@ -102,7 +103,7 @@ Or build directly with hvigor:
 
 ```powershell
 $DEVECO   = "<DevEco Studio>"          # e.g. C:\Program Files\Huawei\DevEco Studio
-$PROJ     = "<repo>\HuwaweiChallenge"
+$PROJ     = "<repo>\HuaweiChallenge"
 $env:DEVECO_SDK_HOME = "$DEVECO\sdk"
 Set-Location $PROJ
 & "$DEVECO\tools\node\node.exe" "$DEVECO\tools\hvigor\bin\hvigorw.js" `
@@ -135,27 +136,32 @@ node --test ".test-build/tests/unit/*.test.js"        # 31/31
 On-device integration tests live in `entry/src/ohosTest` (hypium); build + install the
 `ohosTest` HAP and run `aa test -b com.example.huwaweichallenge -m entry_test -s unittest OpenHarmonyTestRunner`.
 
-## Optional cloud (dev-only)
+## Optional cloud
 
-Two features use a backend (kept **outside** the repo, e.g. `C:\guardian-devserver`):
+The core product is **offline**. Two optional, non-default paths use the network:
 
-- **Remote OCR + LAY A** — the in-app **Dev mode** switch routes OCR/inference to a
-  host server over `hdc rport tcp:9100 tcp:9100` (works on the emulator and a tethered
-  real device).
-- **DeepSeek "Describe"** — shown on incidents whose `escalation` is above the lowest
-  level; the app POSTs to the backend's `/describe`, which holds the API key.
+- **Dev "Remote GPU" backend** — the in-app **Dev mode** switch routes OCR/LAY A to a
+  host server (kept **outside** the repo, e.g. `C:\guardian-devserver`) over
+  `hdc rport tcp:9100 tcp:9100`, for fast iteration on the emulator or a tethered
+  device.
+- **DeepSeek "Describe"** — on incidents whose `escalation` is above the lowest level,
+  the user can tap **Describe with DeepSeek**. The app calls DeepSeek **directly**
+  (`api.deepseek.com`) with **the user's own API key**, entered in Settings and stored
+  on-device (`preferences`). For that one request the scanned text and the incident are
+  sent to DeepSeek; nothing is transmitted unless the user opts in.
 
-**Keys are never shipped.** The DeepSeek key is a **server-side environment variable**
-(`DEEPSEEK_API_KEY`) read by the backend process — not in the repo, the app, or the
-HAP. For a device that is not tethered to the dev machine, run the same endpoint as a
-hosted proxy and point the app's `baseUrl` at it.
+The DeepSeek key is a **runtime credential supplied by the user** — nothing is baked
+into the repo or the HAP. Remove the `dev/` + `DeepSeek*` code and
+`ohos.permission.INTERNET` for a strictly offline build.
 
 ## Security & hygiene
 
-- No secrets in the repo; the dev-only `ohos.permission.INTERNET` and the remote code
-  are marked for removal before a shipping build.
-- Only normal / user-granted permissions (`CUSTOM_SCREEN_CAPTURE`,
-  `SYSTEM_FLOAT_WINDOW`, `KEEP_BACKGROUND_RUNNING`).
+- **No secrets in the repo.** The DeepSeek key is entered by the user at runtime and
+  kept in on-device `preferences`; no key is committed or bundled.
+- Permissions: `CUSTOM_SCREEN_CAPTURE` (normal / user-granted),
+  `KEEP_BACKGROUND_RUNNING` (normal), `SYSTEM_FLOAT_WINDOW` (**system_basic** — the
+  floating island, which needs an ACL-enabled signing profile; see `DESIGN.md` §12),
+  and the optional `INTERNET` (dev / cloud paths only).
 - Screen capture always shows the system indicator (a third-party app cannot capture
   silently); the captured frame is released immediately after OCR.
 

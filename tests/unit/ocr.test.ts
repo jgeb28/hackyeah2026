@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadChars, ctcDecode } from '../../HuwaweiChallenge/entry/src/main/ets/ocr/CtcDecode';
-import { findDetBoxes, sortBoxes } from '../../HuwaweiChallenge/entry/src/main/ets/ocr/DbPostprocess';
-import { orderPointsClockwise } from '../../HuwaweiChallenge/entry/src/main/ets/ocr/ImageOps';
+import { loadChars, ctcDecode } from '../../HuaweiChallenge/entry/src/main/ets/ocr/CtcDecode';
+import { findDetBoxes, sortBoxes } from '../../HuaweiChallenge/entry/src/main/ets/ocr/DbPostprocess';
+import { orderPointsClockwise } from '../../HuaweiChallenge/entry/src/main/ets/ocr/ImageOps';
 
 test('loadChars matches PaddleOCR CTC layout (blank + keys + space)', () => {
   const chars = loadChars('a\nb\nc');

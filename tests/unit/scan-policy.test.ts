@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ScanPolicy } from '../../HuwaweiChallenge/entry/src/main/ets/trigger/ScanPolicy';
+import { ScanPolicy } from '../../HuaweiChallenge/entry/src/main/ets/trigger/ScanPolicy';
 
 interface Clock {
   now: () => number;

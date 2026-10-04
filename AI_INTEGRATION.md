@@ -1,8 +1,9 @@
 # Guardian — AI integration
 
 How Guardian's AI works: the **on-device** model (LAY A), the **OCR**, the **data
-science** behind the fine-tune, and the optional **DeepSeek** fallback. The product
-is **offline by default** — the shipping build declares **no `ohos.permission.INTERNET`**.
+science** behind the fine-tune, and the optional **DeepSeek** action. The product
+is **offline by default** — the on-device path needs no network; the optional cloud
+paths are described in §4.
 
 > This is the AI-integration document that [`AI_WORKFLOW.md`](./AI_WORKFLOW.md) links
 > to. The full data-science methodology (every number, script and caveat) is in
@@ -92,19 +93,21 @@ MindSpore Lite (`rawfile/ocr/det.ms`, `rawfile/ocr/rec.ms`) and runs them via
 The OCR text is the LAY A **state**; the whole thing runs in memory and the captured
 frame is released immediately after OCR.
 
-## 4. The DeepSeek fallback (optional, dev-only)
+## 4. The DeepSeek "Describe" action (optional)
 
 The offline verdict comes from LAY A + the incident KB. For **higher-escalation**
-incidents (`escalation` L1/L2) the app can additionally request a plain-language
-**"Describe"** from a backend that calls **DeepSeek** — richer, grounded wording for
-the user.
+incidents (`escalation` L1/L2) the app can additionally offer a plain-language
+**"Describe with DeepSeek"** — richer, message-specific wording for the user.
 
-- **Not the default.** Offline is the product; this is an enhancement.
-- **Keys are never shipped.** The backend holds `DEEPSEEK_API_KEY`; the app never sees
-  it. The L2 "check this claim" step requires **explicit user consent**; offline or
-  declined → the L0 copy.
-- **Dev-only.** The remote path (`dev/`, `data/datasource/Remote*`, the in-app
-  **Dev mode** switch) and `INTERNET` are removed before the shipping build.
+- **Not the default.** Offline is the product; this is a user-triggered enhancement.
+- **Bring-your-own key, direct call.** The user enters their own DeepSeek API key in
+  Settings; it is stored on-device (`preferences`) and the app calls
+  `api.deepseek.com` directly (`dev/DeepSeekClient.ets`). There is **no Guardian
+  server** and no key in the repo or the HAP. The request sends the scanned text + the
+  incident copy for that single incident; it happens only when the user taps the
+  action, and requires `ohos.permission.INTERNET`.
+- **Remove for a strictly offline build:** the `dev/` + `DeepSeek*` code, the in-app
+  Dev-mode/cloud UI, and `INTERNET`.
 
 ## 5. Inference flow (on-device by default)
 
