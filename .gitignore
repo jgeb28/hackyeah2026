@@ -32,6 +32,9 @@ facebook-feed-mock/
 # --- Dependency lock files (regenerated locally; not committed) ---
 **/oh-package-lock.json5
 
+# --- DevEco-generated mock config (regenerated locally) ---
+**/src/mock/
+
 # --- Local toolchain configuration (contains absolute paths) ---
 local.properties
 **/local.properties

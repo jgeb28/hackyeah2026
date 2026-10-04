@@ -16,11 +16,13 @@ import os
 import shutil
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-PROJECT = ROOT / "HuwaweiChallenge"
+PROJECT = ROOT / "HuaweiChallenge"
 RAWFILE = PROJECT / "entry" / "src" / "main" / "resources" / "rawfile"
+LAYAYA_URL = "https://huggingface.co/s3r10us3r/LAYA-hackyeah2026/resolve/main/laya_en_w8_s256.ms"
 
 DEVECO_CANDIDATES = {
     "nt": [r"C:\Program Files\Huawei\DevEco Studio"],
@@ -79,11 +81,21 @@ def main() -> int:
     if not java_home and (deveco / "jbr").is_dir():
         java_home = str(deveco / "jbr")
 
-    # 1. models
-    if not (RAWFILE / "laya_en_w8_s256.ms").is_file() and not args.skip_fetch:
-        print("[*] on-device models missing; fetching from Hugging Face...")
-        subprocess.run([sys.executable, str(ROOT / "tools" / "fetch_model.py"), "--out-dir", str(ROOT)],
-                       check=True)
+    # 1. on-device model (the other assets are committed)
+    model = RAWFILE / "laya_en_w8_s256.ms"
+    if not model.is_file() and not args.skip_fetch:
+        fetch = ROOT / "tools" / "fetch_model.py"
+        if fetch.is_file():
+            print("[*] on-device model missing; fetching from Hugging Face...")
+            subprocess.run([sys.executable, str(fetch), "--out-dir", str(ROOT)], check=True)
+        else:
+            # tools/ is not shipped with the repo; fall back to a direct download.
+            print(f"[*] tools/fetch_model.py not present; downloading {LAYAYA_URL}")
+            RAWFILE.mkdir(parents=True, exist_ok=True)
+            urllib.request.urlretrieve(LAYAYA_URL, model)
+    if not model.is_file():
+        print("error: on-device model is missing (or pass --skip-fetch).", file=sys.stderr)
+        return 1
 
     # 2. build `entry` only
     env = dict(os.environ)
@@ -96,6 +108,10 @@ def main() -> int:
         env["PATH"] = os.path.join(java_home, "bin") + os.pathsep + env["PATH"]
 
     print(f"[*] building entry (DevEco: {deveco})")
+    ohpm = deveco / "tools" / "ohpm" / "bin" / ("ohpm.bat" if os.name == "nt" else "ohpm")
+    if ohpm.is_file():
+        print("[*] installing dependencies (ohpm)...")
+        run([str(ohpm), "install", "--all"], PROJECT, env)
     if args.clean:
         run([node, str(hvigor), "--mode", "module", "-p", "module=entry@default",
              "-p", "product=default", "clean", "--no-daemon"], PROJECT, env)

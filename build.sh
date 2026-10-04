@@ -11,7 +11,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT="$ROOT/HuwaweiChallenge"
+PROJECT="$ROOT/HuaweiChallenge"
 RAWFILE="$PROJECT/entry/src/main/resources/rawfile"
 
 find_deveco() {
@@ -49,18 +49,32 @@ fi
 if [ -n "${JAVA_HOME:-}" ]; then export PATH="$JAVA_HOME/bin:$PATH"; fi
 
 if [ ! -f "$RAWFILE/laya_en_w8_s256.ms" ] && [ "${GUARDIAN_SKIP_FETCH:-0}" != "1" ]; then
-  echo "[*] on-device models missing; fetching from Hugging Face..."
-  PY="$(command -v python3 || command -v python || true)"
-  if [ -z "$PY" ]; then
-    echo "error: python not found; cannot fetch models (or set GUARDIAN_SKIP_FETCH=1)." >&2
-    exit 1
+  echo "[*] on-device model missing; fetching from Hugging Face..."
+  if [ -f "$ROOT/tools/fetch_model.py" ]; then
+    PY="$(command -v python3 || command -v python || true)"
+    if [ -z "$PY" ]; then
+      echo "error: python not found; cannot run tools/fetch_model.py (or set GUARDIAN_SKIP_FETCH=1)." >&2
+      exit 1
+    fi
+    "$PY" "$ROOT/tools/fetch_model.py" --out-dir "$ROOT"
+  else
+    # tools/ is not shipped with the repo; fall back to a direct download.
+    mkdir -p "$RAWFILE"
+    URL="https://huggingface.co/s3r10us3r/LAYA-hackyeah2026/resolve/main/laya_en_w8_s256.ms"
+    echo "[*] tools/fetch_model.py not present; downloading $URL"
+    curl -fL "$URL" -o "$RAWFILE/laya_en_w8_s256.ms"
   fi
-  "$PY" "$ROOT/tools/fetch_model.py" --out-dir "$ROOT"
 fi
 
 export DEVECO_SDK_HOME="$DEVECO/sdk"
 export NODE_HOME="$DEVECO/tools/node"
 export PATH="$DEVECO/tools/node:$DEVECO/tools/ohpm/bin:$PATH"
+
+OHPM="$DEVECO/tools/ohpm/bin/ohpm"
+if [ -x "$OHPM" ]; then
+  echo "[*] installing dependencies (ohpm)..."
+  (cd "$PROJECT" && "$OHPM" install --all)
+fi
 
 echo "[*] building entry (DevEco: $DEVECO)"
 cd "$PROJECT"

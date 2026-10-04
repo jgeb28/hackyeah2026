@@ -1,9 +1,10 @@
 /**
  * Data-layer configuration for on-device, offline Laya inference.
  *
- * Security posture: Guardian runs the model **entirely on the device**. There is
- * no network backend and no INTERNET permission — this config only describes the
- * local MindSpore Lite artefacts and the accelerator to use.
+ * Security posture: Guardian runs the model **entirely on the device** by default.
+ * The optional network paths (the dev "Remote GPU" backend and the user-key DeepSeek
+ * "Describe" action) live in `dev/` and are documented in AI_INTEGRATION.md; this
+ * config only describes the local MindSpore Lite artefacts and the accelerator.
  */
 
 /**

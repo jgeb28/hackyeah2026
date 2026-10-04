@@ -12,7 +12,7 @@ incident title. The small **x** turns the island off.
 The island runs **only as a floating window** (`TYPE_FLOAT`); there is no in-app
 island. The control screen (`Index`) has one button: **Guard** / **Stop guarding**.
 
-> Code paths below are relative to `HuwaweiChallenge/`.
+> Code paths below are relative to `HuaweiChallenge/`.
 
 - **Collapsed** — a small pill just under the camera cutout (`🛡 Guardian ✕`). Tap to
   expand.
@@ -57,7 +57,7 @@ own **PP-OCRv4** models (det + rec) converted to MindSpore Lite and run via
 
 ```powershell
 $DEVECO = "<DevEco Studio>"                 # e.g. C:\Program Files\Huawei\DevEco Studio
-$PROJ   = "<repo>\HuwaweiChallenge"
+$PROJ   = "<repo>\HuaweiChallenge"
 $HDC    = "$DEVECO\sdk\default\openharmony\toolchains\hdc.exe"
 $TARGET = "127.0.0.1:5555"
 ```
