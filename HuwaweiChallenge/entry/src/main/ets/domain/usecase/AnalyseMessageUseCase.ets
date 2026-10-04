@@ -15,15 +15,14 @@ import { GuardianSchema, SchemaQuestion } from '../model/GuardianSchema';
 import { DecisionRepository } from '../repository/DecisionRepository';
 
 /**
- * Verdict policy for the two-question deception schema.
+ * Verdict policy: the gate is the `deception` choice (P(deceptive)). The `incident`
+ * answer only selects which KB case is shown (its head is noisy, so it never decides
+ * the verdict).
  *
- * The gate is the `deception` choice: P(deceptive). `category` only selects the
- * incident shown afterwards (its head is noisy, so it never decides the verdict).
- *
- * Thresholds are **provisional and fragile** — the base Laya head is not
- * calibrated for this bespoke question. Measured: scams ~0.35-0.53, benign text
- * ~0.08-0.22, benign app/UI chrome up to ~0.32. The margin is ~0.03, so this
- * MUST be replaced by a fine-tuned/calibrated head before shipping.
+ * Thresholds are **provisional and fragile** — the base Laya head is not calibrated
+ * for this bespoke question. Measured: scams ~0.35-0.53, benign text ~0.08-0.22,
+ * benign app/UI chrome up to ~0.32. This MUST be replaced by a fine-tuned/calibrated
+ * head before shipping.
  */
 const DECEPTIVE_DANGEROUS: number = 0.34;
 const DECEPTIVE_CRITICAL: number = 0.55;
@@ -51,7 +50,7 @@ export class AnalyseMessageUseCase {
 
   private buildQuestions(): Record<string, LayaQuestion> {
     const questions: Record<string, LayaQuestion> = {};
-    for (const schema of GuardianSchema.QUESTIONS) {
+    for (const schema of GuardianSchema.questions()) {
       questions[schema.key] = this.toQuestion(schema);
     }
     return questions;
@@ -92,15 +91,14 @@ export class AnalyseMessageUseCase {
     analysis.latencyMs = response.latencyMs;
 
     const deception: LayaAnswer | undefined = response.answers[GuardianSchema.DECEPTION.key];
-    const category: LayaAnswer | undefined = response.answers[GuardianSchema.CATEGORY.key];
+    const incident: LayaAnswer | undefined = response.answers[GuardianSchema.INCIDENT_KEY];
 
     analysis.answers = [
       this.render('Deception', deception),
-      this.render('Category', category)
+      this.render('Incident', incident)
     ];
-
-    const categoryName: string = category !== undefined ? category.choice : '';
-    analysis.category = categoryName;
+    analysis.incidentId = incident !== undefined ? incident.choice : '';
+    analysis.category = '';
 
     const probs: Record<string, number> = deception !== undefined ? deception.probabilities : {};
     const pDeceptive: number = probs['deceptive'] !== undefined ? probs['deceptive'] : 0;

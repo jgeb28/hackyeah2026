@@ -1,9 +1,11 @@
 // Laya-backed classifier: OCR text -> island ScanResult (DESIGN §6/§8).
+// The deception gate decides the verdict; the chosen incident supplies the display.
 import { common } from '@kit.AbilityKit';
 import { MessageAnalysis, Verdict as LayaVerdict } from '../domain/model/Decision';
 import { AppContainer } from '../di/AppContainer';
 import { BackendSettings } from '../dev/BackendSettings';
 import { ScanResult, Verdict } from '../trigger/TriggerTypes';
+import { IncidentKb, Incident } from '../alert/IncidentKb';
 
 export class LayaClassifier {
   private container: AppContainer | null = null;
@@ -19,15 +21,28 @@ export class LayaClassifier {
     return this.container;
   }
 
-  /** Run Laya on the recognised text and map its verdict to a ScanResult. */
+  /** Run Laya on the recognised text and map its answers to a ScanResult. */
   async classify(text: string): Promise<ScanResult> {
     const analysis: MessageAnalysis = await this.ensure().analyseMessage.run(text);
+    // Only a *threat* incident is used for display; a benign (`INFO`) match is dropped.
+    let category: string = '';
+    let severity: string = LayaClassifier.severityOf(analysis.verdict);
+    let incidentId: string = '';
+    const incident: Incident | null = analysis.incidentId.length > 0
+      ? IncidentKb.forId(analysis.incidentId)
+      : null;
+    if (incident !== null && incident.severity !== 'INFO') {
+      category = incident.category;
+      severity = incident.severity;
+      incidentId = incident.id;
+    }
     return {
       verdict: LayaClassifier.verdictOf(analysis.verdict),
-      category: analysis.category.length > 0 ? analysis.category : 'scam',
+      category: category,
       confidence: analysis.confidence,
       signals: [],
-      severity: LayaClassifier.severityOf(analysis.verdict)
+      severity: severity,
+      incidentId: incidentId
     };
   }
 

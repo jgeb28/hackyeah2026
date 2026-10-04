@@ -96,8 +96,8 @@ export class MindSporeLiteEngine {
     response.model = `laya-${this.config.quantization.dtype}`;
     response.latencyMs = latencyMs;
 
-    const questions: SchemaQuestion[] = GuardianSchema.QUESTIONS;
-    const width: number = GuardianSchema.MAX_OPTIONS;
+    const questions: SchemaQuestion[] = GuardianSchema.questions();
+    const width: number = GuardianSchema.maxOptions();
     for (let q = 0; q < questions.length; q++) {
       const schema: SchemaQuestion = questions[q];
       const offset: number = q * width;

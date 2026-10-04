@@ -45,18 +45,17 @@ Dependency rule: `vision/UI → domain ← data`. The scanner and UI only see
 1. The user scans a screen region; `vision/ScreenScanner` captures it and runs OCR.
 2. `vision/LayaClassifier` calls `AnalyseMessageUseCase.run(text)`.
 3. `AnalyseMessageUseCase` builds **two** typed questions from `GuardianSchema`:
-   `deception` (choice: `safe` / `deceptive`) and `category` (choice: `scam` /
-   `misinformation` / `harassment`).
+   `deception` (choice: `safe` / `deceptive`) and `incident` (a choice over the KB
+   incident **ids**, file order; option text = the incident `description`).
 4. `DecisionRepositoryImpl` calls `MindSporeLiteEngine.infer`: `BpeTokenizer` →
    `input_ids`/`attention_mask` `[Q, max_len]` (prefix + state + `[SEP]` + pad, from
    `laya_guardian_meta.json`) → worker-hosted `model.predict` → `[1, Q, MAX_OPTIONS]`
    logits → per-question softmax → `LayaResponse`.
-5. The use case maps `P(deceptive)` to `SAFE`/`DANGEROUS`/`CRITICAL`
-   (`DECEPTIVE_DANGEROUS = 0.30`, `DECEPTIVE_CRITICAL = 0.50` in
-   `AnalyseMessageUseCase`); `category` selects which incident to show.
-6. `vision/LayaClassifier` maps the analysis to a Guardian `ScanResult`; the island
-   picks the matching KB incident (`alert/IncidentKb.forText`) and shows its title /
-   explanation / next steps (or opens `pages/IncidentDetail`).
+5. The verdict is `P(deceptive)` (`DECEPTIVE_DANGEROUS = 0.34`,
+   `DECEPTIVE_CRITICAL = 0.55` in `AnalyseMessageUseCase`). `vision/LayaClassifier`
+   then looks up the chosen incident (`alert/IncidentKb.forId`) for the title /
+   category / severity, and the island shows its explanation / next steps (or opens
+   `pages/IncidentDetail`).
 
 **Privacy:** the text is read from the screen and processed in memory. Nothing is
 transmitted; the only storage is the optional local detection log (DESIGN.md §10).
@@ -72,13 +71,14 @@ The graph is exported with Guardian's fixed label space baked in (see
 | `attention_mask` | int32 | `[Q, max_len]` | 1 for real tokens, 0 for pad |
 | `logits` | fp32 | `[1, Q, MAX_OPTIONS]` | per-question score per option (temperature-scaled) |
 
-`Q = 2` (deception, category) and `MAX_OPTIONS = 3` (`GuardianSchema.MAX_OPTIONS`);
-`max_len` is read from `laya_guardian_meta.json` (256 for the shipped w8/s256 graph).
-The instructions, option markers, head budget and temperatures are **baked into the
-graph** by the converter (`tools/laya/convert_laya.py`). The per-question
-**prefixes** (token ids) are exported to `laya_guardian_meta.json`, and the app
-builds each sequence as `prefix + state + [SEP] + pad` — matching Laya's
-`build_sequence` exactly.
+`Q = 2` (deception, incident) and `MAX_OPTIONS` = the number of KB incidents (10)
+(`GuardianSchema.maxOptions()`); `max_len` is read from `laya_guardian_meta.json`
+(256 for the shipped w8/s256 graph). The instructions, option markers, head budget
+and temperatures are **baked into the graph** by the converter
+(`tools/laya/convert_laya.py`), which builds the question from
+`rawfile/kb/en/incidents.json`. The **prefixes** (token ids) are exported to
+`laya_guardian_meta.json`, and the app builds the sequence as
+`prefix + state + [SEP] + pad` — matching Laya's `build_sequence` exactly.
 
 > Changing `GuardianSchema` (questions/labels/`MAX_OPTIONS`) requires **re-exporting
 > the on-device `.ms`** so the graph matches (root AGENTS.md §11).

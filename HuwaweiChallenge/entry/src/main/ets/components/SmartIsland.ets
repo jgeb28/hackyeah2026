@@ -134,7 +134,9 @@ export struct SmartIsland {
         this.detail = '';
       } else {
         this.phase = 'scam';
-        const incident: Incident | null = IncidentKb.forText(outcome.text, result.category);
+        const incident: Incident | null = result.incidentId !== undefined && result.incidentId.length > 0
+          ? IncidentKb.forId(result.incidentId)
+          : IncidentKb.forText(outcome.text, result.category);
         if (incident !== null) {
           // UI severity comes from the incident (DESIGN §18), not the raw verdict.
           this.color = AlertTheme.colorForSeverity(incident.severity);

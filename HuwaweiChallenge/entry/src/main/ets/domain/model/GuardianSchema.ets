@@ -1,18 +1,20 @@
 import { QuestionType } from './Decision';
 
 /**
- * Guardian's fixed label space, expressed once and shared by:
+ * Guardian's label space, shared by:
  *   - `AnalyseMessageUseCase`   (builds the Laya questions)
  *   - `MindSporeLiteEngine`     (decodes the on-device graph output)
+ *   - the converter (`tools/laya/convert_laya.py`) bakes the same questions in.
  *
- * The text is treated as **any on-screen content**, not necessarily a message.
- * Two questions only:
+ * Two questions:
  *   1. `deception` — a binary gate: is the text trying to deceive the reader?
- *   2. `category`  — if it is, which kind of deceptive content is it?
+ *   2. `incident`  — which known incident does it best match? Its options are the
+ *      incident **ids** from `rawfile/kb/en/incidents.json`, in file order, with the
+ *      option text = the incident `description`. Populated at runtime by
+ *      `IncidentKb.load` via `setIncidentChoices` (the converter reads the same JSON).
  *
- * NOTE: the number/order/labels are baked into the on-device `.ms` by
- * `tools/laya/convert_laya.py`. Changing this file requires re-exporting the
- * on-device model before a push (see root AGENTS.md "dev remote parity" rule).
+ * NOTE: the question order, option order and option count are baked into the
+ * on-device `.ms`. Changing them requires re-exporting the model (root AGENTS §11).
  */
 export interface SchemaQuestion {
   key: string;
@@ -38,31 +40,42 @@ export class GuardianSchema {
     ]
   };
 
-  /** Which kind of deceptive text it is (only meaningful when DECEPTION = deceptive). */
-  static readonly CATEGORY: SchemaQuestion = {
-    key: 'category',
-    kind: QuestionType.CHOICE,
-    instructions: 'What kind of deceptive text is this?',
-    labels: ['scam', 'misinformation', 'harassment'],
-    descriptions: [
-      'fraud, phishing, or a request for money or credentials',
-      'a false or unverified alarming claim meant to mislead',
-      'abuse, threats or coercion'
-    ]
-  };
+  static readonly INCIDENT_KEY: string = 'incident';
+  static readonly INCIDENT_INSTRUCTIONS: string =
+    'Which of these known incidents best matches the text? Pick the closest match.';
 
-  /** Order is part of the model contract — do not reorder without re-exporting. */
-  static readonly QUESTIONS: SchemaQuestion[] = [
-    GuardianSchema.DECEPTION,
-    GuardianSchema.CATEGORY
-  ];
+  private static incidentLabels: string[] = [];
+  private static incidentDescriptions: string[] = [];
 
-  /** Width of the padded option axis in the on-device graph output (max options across questions: category=3). */
-  static readonly MAX_OPTIONS: number = 3;
+  /** Called by `IncidentKb.load` once the incident JSON is parsed. Order = file order. */
+  static setIncidentChoices(labels: string[], descriptions: string[]): void {
+    GuardianSchema.incidentLabels = labels;
+    GuardianSchema.incidentDescriptions = descriptions;
+  }
+
+  /** The current question set (order is part of the model contract). */
+  static questions(): SchemaQuestion[] {
+    const incident: SchemaQuestion = {
+      key: GuardianSchema.INCIDENT_KEY,
+      kind: QuestionType.CHOICE,
+      instructions: GuardianSchema.INCIDENT_INSTRUCTIONS,
+      labels: GuardianSchema.incidentLabels,
+      descriptions: GuardianSchema.incidentDescriptions
+    };
+    return [GuardianSchema.DECEPTION, incident];
+  }
+
+  /** Padded option width the on-device graph uses (= max options across questions). */
+  static maxOptions(): number {
+    const a: number = GuardianSchema.DECEPTION.labels.length;
+    const b: number = GuardianSchema.incidentLabels.length;
+    return a > b ? a : b;
+  }
 
   static indexOf(key: string): number {
-    for (let i = 0; i < GuardianSchema.QUESTIONS.length; i++) {
-      if (GuardianSchema.QUESTIONS[i].key === key) {
+    const qs: SchemaQuestion[] = GuardianSchema.questions();
+    for (let i = 0; i < qs.length; i++) {
+      if (qs[i].key === key) {
         return i;
       }
     }

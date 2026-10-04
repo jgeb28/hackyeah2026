@@ -821,10 +821,11 @@ entry/src/main/resources/rawfile/kb/en/incidents.json
 | `explanation`, `remediation`, `actions`, `sources` | overlay content + model grounding |
 | `messages` | `level0` (always) plus `level1` and/or `level2` |
 
-**LAY A contract.** The message text is the input; each case is a choice labelled
-`description + " — " + keywords.join(", ")`; LAYA returns the best `id` (or none).
-The matched case supplies `severity`, `messages`, and `remediation`. There is no
-vector store in Phase 1.
+**LAY A contract.** LAY A answers two questions: a `deception` gate
+(`safe`/`deceptive`, which decides the verdict) and an `incident` choice whose options
+are the incident ids (file order) with option text = the incident `description`. The
+matched case supplies `severity` (the alert colour), `messages`, and `remediation`.
+There is no vector store in Phase 1.
 
 ### 18.3 Standard message + escalation
 

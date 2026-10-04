@@ -77,3 +77,18 @@ test('the two design scenarios sit at their intended levels', () => {
   assert.equal(byId.get('family-emergency-money')?.escalation, 'L0');
   assert.equal(byId.get('misinfo-breaking-event')?.escalation, 'L2');
 });
+
+// The single LAY A "incident" question is generated from the KB: one option per
+// incident (id = label), option text = the incident description, in file order.
+// The app (IncidentKb.publishChoices) and the converter (build_incident_question)
+// must produce the same list. Descriptions are kept short to fit the LAY A head
+// budget (head_max_len = 192 across all options).
+test('LAY A incident options derive from the incidents, in file order', () => {
+  const labels = kb.incidents.map((i) => i.id);
+  assert.equal(labels.length, 10, 'ten incident options');
+  assert.equal(new Set(labels).size, labels.length, 'option ids are unique');
+  for (const inc of kb.incidents) {
+    assert.ok(inc.description.length > 0, `${inc.id} has an option description`);
+    assert.ok(inc.description.split(/\s+/).length <= 16, `${inc.id} description is short`);
+  }
+});
