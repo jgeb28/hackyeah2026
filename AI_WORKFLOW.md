@@ -24,10 +24,11 @@ We built the whole project with **OpenCode** agents running
   the **`opencode`** skill for configuration questions.
 - We used **no MCP servers**.
 
-Every agent worked under the repo's [`AGENTS.md`](../AGENTS.md) and
-[`HuwaweiChallenge/AGENTS.md`](./AGENTS.md): keep the workflow honest and
-timestamped, commit only task-relevant files, never put secrets or scripts in
-the repo, and **never merge a pull request** — a human always did that.
+Every agent worked under the repo's [`AGENTS.md`](./AGENTS.md) and
+[`HuwaweiChallenge/AGENTS.md`](./HuwaweiChallenge/AGENTS.md): keep the workflow
+honest and timestamped, commit only task-relevant files, never put secrets or
+scripts in the repo, and **never merge a pull request** — a human always did
+that.
 
 ## How we worked with the agents
 
@@ -87,7 +88,5 @@ We recorded our dead ends as carefully as our wins.
 
 - [`LAYA_INTEGRATION.md`](./LAYA_INTEGRATION.md) — the on-device AI feature
   (model, inference, data handling, validation, privacy).
-- [`DESIGN.md`](../DESIGN.md) and [`RUNNING.md`](./RUNNING.md) — architecture and
+- [`DESIGN.md`](./DESIGN.md) and [`RUNNING.md`](./RUNNING.md) — architecture and
   the run guide.
-- The earlier per-developer `AI_WORKFLOW_*.md` logs in the repo root hold the
-  full prompt-by-prompt history.

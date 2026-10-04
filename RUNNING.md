@@ -12,6 +12,8 @@ incident title. The small **x** turns the island off.
 The island runs **only as a floating window** (`TYPE_FLOAT`); there is no in-app
 island. The control screen (`Index`) has one button: **Guard** / **Stop guarding**.
 
+> Code paths below are relative to `HuwaweiChallenge/`.
+
 - **Collapsed** — a small pill just under the camera cutout (`🛡 Guardian ✕`). Tap to
   expand.
 - **Expanded** — shows the action (`Select area`, or `Details` on a scam) and `Close`.

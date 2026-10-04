@@ -23,7 +23,7 @@ While assisting with development, you must silently keep track of the following 
 ---
 
 ## On-Demand Generation: Team Workflow File
-When the user asks you to "Generate the AI Workflow file" or "Finalize documentation," write to the single team file **`HuwaweiChallenge/AI_WORKFLOW.md`**. There are **no** per-developer `AI_WORKFLOW_*.md` files.
+When the user asks you to "Generate the AI Workflow file" or "Finalize documentation," write to the single team file **`AI_WORKFLOW.md`** in the repo root. There are **no** per-developer `AI_WORKFLOW_*.md` files.
 
 Every time you write or update this file, you must prepend the entry with the current timestamp.
 
