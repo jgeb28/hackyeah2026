@@ -18,6 +18,11 @@ npx serve .
 - Infinite scroll (more posts load as you reach the bottom).
 - Like/comment/share interactions (mock); sponsored post; link previews.
 - **One featured fake-news post with an image** — the pigeon-mayor story.
+- **A curated misinformation post** (`p2c`, "Truth Patriots Daily") for the Guardian
+  demo: a serious, source-free viral claim using the `unverified-alarming-news`
+  keywords (breaking / "they don't want you to know" / sources say / share now /
+  urgent / wake up). Scan this one to exercise the LAY A deception gate and the
+  L2 "Check this claim" incident.
 
 ## The image (action needed)
 

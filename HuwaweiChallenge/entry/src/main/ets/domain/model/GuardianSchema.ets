@@ -31,12 +31,13 @@ export class GuardianSchema {
   static readonly DECEPTION: SchemaQuestion = {
     key: 'deception',
     kind: QuestionType.CHOICE,
-    instructions: 'Does this text try to deceive the reader — for example by impersonating ' +
-      'someone, inventing urgency or a threat, or asking for money, credentials or personal data?',
+    instructions: 'Does this text try to deceive or mislead the reader — for example by ' +
+      'impersonating someone, inventing urgency or a threat, asking for money, credentials ' +
+      'or personal data, or spreading fake news or a false or unverified claim?',
     labels: ['safe', 'deceptive'],
     descriptions: [
-      'the text is not trying to deceive the reader',
-      'the text tries to deceive the reader'
+      'the text does not try to deceive or mislead the reader',
+      'the text tries to deceive or mislead the reader, or spreads fake news or a false or unverified claim'
     ]
   };
 

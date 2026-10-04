@@ -54,12 +54,13 @@ QTYPES: Dict[str, int] = {"choice": 0, "score": 1, "noul": 2}
 DECEPTION: Dict = {
     "key": "deception",
     "type": "choice",
-    "instructions": "Does this text try to deceive the reader — for example by impersonating "
-                    "someone, inventing urgency or a threat, or asking for money, credentials or "
-                    "personal data?",
+    "instructions": "Does this text try to deceive or mislead the reader — for example by "
+                    "impersonating someone, inventing urgency or a threat, asking for money, "
+                    "credentials or personal data, or spreading fake news or a false or unverified claim?",
     "criteria": {
-        "safe": "the text is not trying to deceive the reader",
-        "deceptive": "the text tries to deceive the reader",
+        "safe": "the text does not try to deceive or mislead the reader",
+        "deceptive": "the text tries to deceive or mislead the reader, or spreads fake news "
+                     "or a false or unverified claim",
     },
 }
 
