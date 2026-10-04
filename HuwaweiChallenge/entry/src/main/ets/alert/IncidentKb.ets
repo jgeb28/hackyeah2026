@@ -2,6 +2,7 @@
 import { common } from '@kit.AbilityKit';
 import { util } from '@kit.ArkTS';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { GuardianSchema } from '../domain/model/GuardianSchema';
 
 const DOMAIN: number = 0x0A11;
 const TAG: string = 'GuardianKb';
@@ -46,6 +47,7 @@ export class IncidentKb {
       const root: KbRoot = JSON.parse(text) as KbRoot;
       IncidentKb.incidents = root.incidents !== undefined ? root.incidents : [];
       IncidentKb.loaded = true;
+      IncidentKb.publishChoices();
       hilog.info(DOMAIN, TAG, 'incidents loaded: %{public}d', IncidentKb.incidents.length);
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'kb load failed: %{public}s', JSON.stringify(err));
@@ -96,5 +98,27 @@ export class IncidentKb {
       }
     }
     return bestScore > 0 ? best : IncidentKb.forCategory(category);
+  }
+
+  /** The incident with this id, or null. */
+  static forId(id: string): Incident | null {
+    for (let i = 0; i < IncidentKb.incidents.length; i++) {
+      if (IncidentKb.incidents[i].id === id) {
+        return IncidentKb.incidents[i];
+      }
+    }
+    return null;
+  }
+
+  /** Push the incident ids + LAY A option text ("description — keywords") into the schema. */
+  private static publishChoices(): void {
+    const ids: string[] = [];
+    const descriptions: string[] = [];
+    for (let i = 0; i < IncidentKb.incidents.length; i++) {
+      const incident: Incident = IncidentKb.incidents[i];
+      ids.push(incident.id);
+      descriptions.push(incident.description);
+    }
+    GuardianSchema.setIncidentChoices(ids, descriptions);
   }
 }

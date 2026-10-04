@@ -6,7 +6,7 @@ Pipeline
 1. Download `convaiinnovations/laya` (encoder + tokenizer + weights + config).
 2. Rebuild the real `DecisionModel` (encoder + type embedding + 2-layer head +
    per-option [MASK] scorer) exactly as `rl_common.py` does.
-3. Wrap it with Guardian's three fixed questions baked in, so the exported graph
+3. Wrap it with Guardian's two fixed questions baked in, so the exported graph
    only needs the **tokenized message** (state) as input.
 4. Export ONNX (legacy tracer, opset 17) and numerically validate it against
    PyTorch (when onnxruntime is available).
@@ -50,30 +50,37 @@ PATTERNS = ["encoder/*", "tokenizer/*", "model.safetensors", "rl_agent_config.js
 
 QTYPES: Dict[str, int] = {"choice": 0, "score": 1, "noul": 2}
 
-# Guardian's fixed schema. Order MUST match GuardianSchema.ets.
-SCHEMA: List[Dict] = [
-    {
-        "key": "deception",
-        "type": "choice",
-        "instructions": "Does this text try to deceive the reader — for example by impersonating "
-                        "someone, inventing urgency or a threat, or asking for money, credentials or "
-                        "personal data?",
-        "criteria": {
-            "safe": "the text is not trying to deceive the reader",
-            "deceptive": "the text tries to deceive the reader",
-        },
+# Guardian's question 1 (the deception gate). Order MUST match GuardianSchema.ets.
+DECEPTION: Dict = {
+    "key": "deception",
+    "type": "choice",
+    "instructions": "Does this text try to deceive the reader — for example by impersonating "
+                    "someone, inventing urgency or a threat, or asking for money, credentials or "
+                    "personal data?",
+    "criteria": {
+        "safe": "the text is not trying to deceive the reader",
+        "deceptive": "the text tries to deceive the reader",
     },
-    {
-        "key": "category",
+}
+
+DEFAULT_KB = (Path(__file__).resolve().parent.parent.parent /
+              "HuwaweiChallenge/entry/src/main/resources/rawfile/kb/en/incidents.json")
+
+
+def build_incident_question(kb_path: Path) -> Dict:
+    """Question 1, generated from the incident KB. Options = incident ids (file
+    order); option text = the incident description. Matches
+    `IncidentKb.publishChoices` in the app."""
+    data = json.loads(kb_path.read_text(encoding="utf-8"))
+    criteria: Dict[str, str] = {}
+    for inc in data.get("incidents", []):
+        criteria[inc["id"]] = inc.get("description", "")
+    return {
+        "key": "incident",
         "type": "choice",
-        "instructions": "What kind of deceptive text is this?",
-        "criteria": {
-            "scam": "fraud, phishing, or a request for money or credentials",
-            "misinformation": "a false or unverified alarming claim meant to mislead",
-            "harassment": "abuse, threats or coercion",
-        },
-    },
-]
+        "instructions": "Which of these known incidents best matches the text? Pick the closest match.",
+        "criteria": criteria,
+    }
 
 
 # --------------------------------------------------------------------------- Laya helpers
@@ -434,6 +441,8 @@ def main() -> int:
                     help="skip onnxsim constant-folding before conversion")
     ap.add_argument("--export-only", action="store_true",
                     help="export ONNX + meta, then stop (no simplification/conversion)")
+    ap.add_argument("--kb", default=str(DEFAULT_KB),
+                    help="incidents.json used to build question 2 (the incident choice)")
     args = ap.parse_args()
 
     model_dir = Path(args.model_dir)
@@ -451,9 +460,12 @@ def main() -> int:
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(str(model_dir / "tokenizer"))
 
+    schema: List[Dict] = [DECEPTION, build_incident_question(Path(args.kb))]
+    print("[schema] questions: %s" % [q["key"] for q in schema])
+
     prefixes: List[List[int]] = []
     markers: List[List[int]] = []
-    for q in SCHEMA:
+    for q in schema:
         prefix, marks = build_head(tok, q, head_max_len)
         prefixes.append(prefix)
         markers.append(marks)
@@ -462,13 +474,13 @@ def main() -> int:
 
     # Input is the FULL sequence per question: prefix + state + [SEP] + pad,
     # so the app packs the state tightly (matching Laya's build_sequence).
-    for q, p in zip(SCHEMA, prefixes):
+    for q, p in zip(schema, prefixes):
         if len(p) + 8 >= max_len:
             print("BLOCKER: prefix too long for max_len (%s: %d)" % (q["key"], len(p)))
             return 1
     kmax = max(len(m) for m in markers)
-    temperatures = [temperature_for(cfg, q["type"], len(m)) for q, m in zip(SCHEMA, markers)]
-    qtypes = [QTYPES[q["type"]] for q in SCHEMA]
+    temperatures = [temperature_for(cfg, q["type"], len(m)) for q, m in zip(schema, markers)]
+    qtypes = [QTYPES[q["type"]] for q in schema]
     print("[graph] max_len=%d kmax=%d temperatures=%s"
           % (max_len, kmax, ["%.3f" % t for t in temperatures]))
 
@@ -494,11 +506,11 @@ def main() -> int:
             "model": "laya-guardian",
             "repo": REPO_ID,
             "quantization": args.quantize or "none",
-            "inputs": {"input_ids": [len(SCHEMA), max_len],
-                       "attention_mask": [len(SCHEMA), max_len]},
-            "output": {"logits": [1, len(SCHEMA), kmax]},
-            "questions": [q["key"] for q in SCHEMA],
-            "labels": {q["key"]: render_labels(q) for q in SCHEMA},
+            "inputs": {"input_ids": [len(schema), max_len],
+                       "attention_mask": [len(schema), max_len]},
+            "output": {"logits": [1, len(schema), kmax]},
+            "questions": [q["key"] for q in schema],
+            "labels": {q["key"]: render_labels(q) for q in schema},
             "prefixes": prefixes,
             "markers": markers,
             "temperatures": temperatures,

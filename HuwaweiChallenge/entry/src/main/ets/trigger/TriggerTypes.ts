@@ -32,6 +32,8 @@ export interface ScanResult {
   signals: string[];
   /** Incident severity from the knowledge base (CRITICAL | WARNING | INFO), when reported. */
   severity?: string;
+  /** KB incident id chosen by Laya's `incident` question, when present. */
+  incidentId?: string;
 }
 
 /** A trigger that fired: the rendered text plus its origin. */

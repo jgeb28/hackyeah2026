@@ -94,6 +94,8 @@ export class DecisionAnswer {
 export class MessageAnalysis {
   verdict: string = Verdict.UNKNOWN;
   category: string = '';
+  /** KB incident id chosen by Laya's `incident` question, or ''. */
+  incidentId: string = '';
   summary: string = '';
   confidence: number = 0;
   latencyMs: number = 0;

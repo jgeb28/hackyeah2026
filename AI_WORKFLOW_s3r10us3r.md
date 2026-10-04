@@ -9,6 +9,78 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 05:22:34
+**Developer:** s3r10us3r
+
+**Task (correction):** restore the **deception gate**. Keeps the incident question + merged/shortened KB from the previous step.
+
+#### 3. Development Workflow & Prompts
+* **Correction to the 05:19:48 entry:** the deception gate is **kept** (per the developer). LAY A is again **two** questions: `deception` (gate → verdict) + `incident` (choice over the KB, option text = description).
+* **App:** `GuardianSchema` restores `DECEPTION` (`questions()` = [deception, incident], `maxOptions()` = max); `AnalyseMessageUseCase` restores the `P(deceptive)` thresholds (0.34 / 0.55) plus `incidentId`; `LayaClassifier` verdict from the gate and uses a **threat** incident (`severity != INFO`) for the title/category/colour.
+* **Converter/server:** `convert_laya.py` and `serve.py` again emit the `deception` question + the `incident` question.
+* **Docs:** `LAYA_INTEGRATION.md` and `DESIGN.md` §18.2 back to two questions.
+* **Key Prompts:** "Deception gate must stay."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL (fixed an ArkTS null-narrowing error in `LayaClassifier`); installed + relaunched. Unit **31/31**.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review; **re-export the `.ms`** (two questions).
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** ArkTS doesn't narrow `X | null` through a derived boolean — narrow with an explicit `if (incident !== null)`. The KB merge (shortened descriptions, `no-threat`) is retained.
+
+---
+## Update: 2026-10-04 05:19:48
+**Developer:** s3r10us3r
+
+**Task:** simplify LAY A to a **single `incident` question** over the KB (drop the deception gate), merge the duplicate OTP entries, shorten descriptions. **Not committed/pushed; on-device `.ms` re-export still required.**
+
+#### 3. Development Workflow & Prompts
+* **Schema:** removed the `deception` question. LAY A now answers **one** `incident` choice over the KB; the chosen incident's **severity** becomes the verdict (CRITICAL/WARNING/INFO → CRITICAL/DANGEROUS/SAFE).
+* **KB (`incidents.json`):** merged the duplicate `safe-otp-notice` into a generic benign **`no-threat`** (INFO) option (kept `otp-verification-theft` for the scam); shortened every `description`; **10 options**.
+* **App:** `GuardianSchema` (one question, `setIncidentChoices`, `maxOptions`); `AnalyseMessageUseCase` (incidentId only, verdict resolved downstream); `LayaClassifier` (verdict from the incident severity); option text = `description`.
+* **Converter/server:** `convert_laya.py` and `serve.py` build a single `incident` question (description-only options) from `incidents.json`.
+* **Key Prompts:** "merge duplicates and remove deception here. Shorten the descriptions reasonably. If their too short for laya to pick up we will run a bigger one."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed. Unit **31/31** (updated the option-text rule test). **Head budget measured:** options now 14–28 tokens (id + description) = ~249 total vs `head_max_len = 192` → the converter still shrinks each to ~17 tokens (the id prefix eats ~6). Accepted for now; bigger head/model later.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review; **re-export the `.ms`** with the single `incident` question before on-device testing.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** with the deception gate gone, benign text must be absorbed by the `no-threat` option; accuracy depends on the model. Option text still exceeds the head budget → truncation. Coordinate re-export with the fine-tune session.
+* **Lessons Learned:** the id prefix costs ~6 tokens/option — dropping it from the rendered option text is the cheapest way to reclaim budget if needed.
+
+---
+## Update: 2026-10-04 05:05:51
+**Developer:** s3r10us3r
+
+**Task:** expand LAY A's **second question** to be generated from the incident KB (`incidents.json`). **Not committed/pushed** (and **requires re-exporting the on-device `.ms`**).
+
+#### 3. Development Workflow & Prompts
+* **Design:** question 2 is now `incident` — a `choice` whose options are the KB **incident ids** (file order), option text `"<description> — <keywords joined>"`. Question 1 (`deception`) unchanged. `MAX_OPTIONS` is now the incident count (10).
+* **App:**
+  - `domain/model/GuardianSchema.ets` — reworked: `DECEPTION` static + a runtime `incident` question populated via `setIncidentChoices`; `questions()` and `maxOptions()` replace the old static `QUESTIONS`/`MAX_OPTIONS=3`.
+  - `alert/IncidentKb.ets` — `publishChoices()` (pushes ids + option text into the schema) and `forId()`.
+  - `domain/usecase/AnalyseMessageUseCase.ets` — builds questions from `questions()`, reads the `incident` answer into `MessageAnalysis.incidentId`.
+  - `data/datasource/MindSporeLiteEngine.ets` — decodes with `questions()` / `maxOptions()`.
+  - `vision/LayaClassifier.ets` — maps the chosen incident id → KB incident (category + severity) and sets `ScanResult.incidentId`.
+  - `trigger/TriggerTypes.ts`, `domain/model/Decision.ets` — `incidentId` added.
+  - `components/SmartIsland.ets` — prefers `IncidentKb.forId(result.incidentId)`, falls back to `forText`.
+* **Converter:** `tools/laya/convert_laya.py` — `build_incident_question(kb_path)` reads `incidents.json` (new `--kb` arg) to bake question 2; `SCHEMA` → runtime `schema`.
+* **Dev server (outside repo):** `C:\guardian-devserver\serve.py` — `QUESTIONS` now built from the KB (question 2 = incidents).
+* **Key Prompts:** "we need to expand LAYA's second question to be generated based on the json base with incidents we have."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed. Device-free unit suite **31/31** (added a test asserting the incident→option-text mapping, file order).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review; **the on-device `.ms` must be re-exported** with the new question (and the fine-tuned model), else the on-device path decodes against the old 3-option graph.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Parity:** the on-device graph bakes the questions, so this change breaks the current `laya_en_w8_s256.ms` until re-exported (`convert_laya.py` is updated). The dev remote path works once `serve.py` (updated) + the fine-tuned model are running.
+* **Coordination:** the parallel fine-tune/export session must re-export with the incident question.
+
+---
 ## Update: 2026-10-04 04:54:31
 **Developer:** s3r10us3r
 
