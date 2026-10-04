@@ -7,6 +7,7 @@ import { AlertTheme } from '../alert/AlertTheme';
 import { BackendSettings } from '../dev/BackendSettings';
 import { IncidentKb } from '../alert/IncidentKb';
 import { IslandOverlay } from '../alert/IslandOverlay';
+import { SelectorOverlay } from '../alert/SelectorOverlay';
 import { InAppSdkSource } from '../sdk/InAppSdkSource';
 import { ScanJob } from '../trigger/IngestSource';
 import { TriggerEngine } from '../trigger/TriggerEngine';
@@ -28,6 +29,7 @@ export default class EntryAbility extends UIAbility {
     AlertTheme.load(this.context);
     IncidentKb.load(this.context);
     IslandOverlay.setContext(this.context);
+    SelectorOverlay.setContext(this.context);
     this.source.start((job: ScanJob) => {
       TriggerEngine.get().onReport(job.bundleName, job.text, job.category, job.severity, TriggerSource.SDK);
     });

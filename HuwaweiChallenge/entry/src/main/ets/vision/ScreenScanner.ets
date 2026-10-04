@@ -1,6 +1,6 @@
 // One-shot screen scan: capture -> PP-OCRv4 -> classify. No canned fallback:
 // if capture or OCR fails we surface the real error instead of faking text.
-import { screenshot, window } from '@kit.ArkUI';
+import { screenshot, window, display } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { common, abilityAccessCtrl, Permissions } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -21,18 +21,39 @@ export interface ScanOutcome {
   error: string;
 }
 
+/** A user-selected area, in vp, relative to the display origin. */
+export interface ScanRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export class ScreenScanner {
   private laya: LayaClassifier = new LayaClassifier();
 
-  /** Capture the screen once, read the real text, and classify it. */
-  async scanOnce(): Promise<ScanOutcome> {
+  /**
+   * Capture the screen once, read the real text, and classify it.
+   * When `region` is given, the capture is cropped to that area first.
+   */
+  async scanOnce(region?: ScanRegion): Promise<ScanOutcome> {
     let frame: image.PixelMap | undefined = undefined;
     let text: string = '';
     let error: string = '';
     try {
       await this.ensurePermission();
-      frame = await screenshot.capture();
-      const rects: RectPx[] = await ScreenScanner.chromeRects(frame);
+      // Hide our own island so it is not part of the capture.
+      await IslandOverlay.hide();
+      await ScreenScanner.delay(200);
+      try {
+        frame = await ScreenScanner.captureWithRetry();
+      } finally {
+        await IslandOverlay.reveal();
+      }
+      if (region !== undefined) {
+        await ScreenScanner.cropToRegion(frame, region);
+      }
+      const rects: RectPx[] = region !== undefined ? [] : await ScreenScanner.chromeRects(frame);
       hilog.info(DOMAIN, TAG, 'chrome rects: %{public}d', rects.length);
       text = await createOcrEngine().recognize(frame, rects);
     } catch (err) {
@@ -67,6 +88,48 @@ export class ScreenScanner {
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'permission request failed: %{public}s', JSON.stringify(err));
     }
+  }
+
+  /** Capture, retrying once shortly after a transient display-service failure. */
+  private static async captureWithRetry(): Promise<image.PixelMap> {
+    try {
+      return await screenshot.capture();
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'capture failed, retrying: %{public}s', JSON.stringify(err));
+      await ScreenScanner.delay(350);
+      return await screenshot.capture();
+    }
+  }
+
+  private static delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, ms);
+    });
+  }
+
+  /** Crop the capture to the user's area (vp -> px, clamped to the image). */
+  private static async cropToRegion(frame: image.PixelMap, region: ScanRegion): Promise<void> {
+    const d: display.Display = display.getDefaultDisplaySync();
+    const s: number = d.densityPixels;
+    const info: image.ImageInfo = await frame.getImageInfo();
+    const x: number = Math.max(0, Math.round(region.x * s));
+    const y: number = Math.max(0, Math.round(region.y * s));
+    let w: number = Math.round(region.width * s);
+    let h: number = Math.round(region.height * s);
+    if (x + w > info.size.width) {
+      w = info.size.width - x;
+    }
+    if (y + h > info.size.height) {
+      h = info.size.height - y;
+    }
+    if (w < 2 || h < 2) {
+      return;
+    }
+    const reg: image.Region = { x: x, y: y, size: { width: w, height: h } };
+    await frame.crop(reg);
+    hilog.info(DOMAIN, TAG, 'cropped to %{public}d,%{public}d %{public}dx%{public}d', x, y, w, h);
   }
 
   /** Deterministic chrome regions to drop: status bar, nav bar, and our own island window. */

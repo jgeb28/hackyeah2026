@@ -6,6 +6,7 @@
     "pages/FloatingIsland",
     "pages/OcrDemo",
     "pages/IncidentDetail",
-    "pages/LayaDemo"
+    "pages/LayaDemo",
+    "pages/SelectArea"
   ]
 }
