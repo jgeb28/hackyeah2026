@@ -1,10 +1,12 @@
 // One-shot screen scan: capture -> PP-OCRv4 -> classify. No canned fallback:
 // if capture or OCR fails we surface the real error instead of faking text.
-import { screenshot } from '@kit.ArkUI';
+import { screenshot, window } from '@kit.ArkUI';
 import { image } from '@kit.ImageKit';
 import { common, abilityAccessCtrl, Permissions } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { OcrEngine, ScreenOcrEngine } from './OcrEngine';
+import { createOcrEngine } from '../dev/BackendFactory';
+import { IslandOverlay } from '../alert/IslandOverlay';
+import { RectPx } from '../ocr/OcrTypes';
 import { LayaClassifier } from './LayaClassifier';
 import { ScanResult } from '../trigger/TriggerTypes';
 
@@ -20,7 +22,6 @@ export interface ScanOutcome {
 }
 
 export class ScreenScanner {
-  private ocr: OcrEngine = new ScreenOcrEngine();
   private laya: LayaClassifier = new LayaClassifier();
 
   /** Capture the screen once, read the real text, and classify it. */
@@ -31,7 +32,9 @@ export class ScreenScanner {
     try {
       await this.ensurePermission();
       frame = await screenshot.capture();
-      text = await this.ocr.recognize(frame);
+      const rects: RectPx[] = await ScreenScanner.chromeRects(frame);
+      hilog.info(DOMAIN, TAG, 'chrome rects: %{public}d', rects.length);
+      text = await createOcrEngine().recognize(frame, rects);
     } catch (err) {
       error = ScreenScanner.describe(err);
       hilog.warn(DOMAIN, TAG, 'scan failed: %{public}s', JSON.stringify(err));
@@ -64,6 +67,32 @@ export class ScreenScanner {
     } catch (err) {
       hilog.warn(DOMAIN, TAG, 'permission request failed: %{public}s', JSON.stringify(err));
     }
+  }
+
+  /** Deterministic chrome regions to drop: status bar, nav bar, and our own island window. */
+  private static async chromeRects(frame: image.PixelMap): Promise<RectPx[]> {
+    const rects: RectPx[] = [];
+    const info: image.ImageInfo = await frame.getImageInfo();
+    const W: number = info.size.width;
+    const H: number = info.size.height;
+    try {
+      const ctx: common.UIAbilityContext = getContext() as common.UIAbilityContext;
+      const win: window.Window = await window.getLastWindow(ctx);
+      const avoid: window.AvoidArea = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      if (avoid.topRect.height > 0) {
+        rects.push({ left: 0, top: 0, width: W, height: avoid.topRect.height });
+      }
+      if (avoid.bottomRect.height > 0) {
+        rects.push({ left: 0, top: H - avoid.bottomRect.height, width: W, height: avoid.bottomRect.height });
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'avoid-area query failed: %{public}s', JSON.stringify(err));
+    }
+    const isl: window.Rect | null = IslandOverlay.rectPx();
+    if (isl !== null) {
+      rects.push({ left: isl.left, top: isl.top, width: isl.width, height: isl.height });
+    }
+    return rects;
   }
 
   private static describe(err: Object): string {

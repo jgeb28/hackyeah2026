@@ -12,7 +12,7 @@ import { image } from '@kit.ImageKit';
 import { resourceManager } from '@kit.LocalizationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { util } from '@kit.ArkTS';
-import { OcrBox, OcrResult, OcrLine } from './OcrTypes';
+import { OcrBox, OcrResult, OcrLine, RectPx } from './OcrTypes';
 import { findDetBoxes, sortBoxes } from './DbPostprocess';
 import { affineCrop, detPreprocess, recPreprocess, DET_SIZE, rgbaToBgr } from './ImageOps';
 import { ctcDecode, loadChars } from './CtcDecode';
@@ -77,7 +77,7 @@ export class OcrEngine {
   }
 
   /** The complete function: extract every text line from a bitmap. */
-  async extract(pixelMap: image.PixelMap): Promise<OcrResult> {
+  async extract(pixelMap: image.PixelMap, excludedRects: RectPx[] = []): Promise<OcrResult> {
     if (this.det === null || this.rec === null) {
       throw new Error('OcrEngine not loaded; call ensureLoaded first');
     }
@@ -95,8 +95,9 @@ export class OcrEngine {
     const tDet = Date.now();
     const detOut = await this.det.predict(detInputs);
     const prob = new Float32Array(detOut[0].getData());
-    const boxes: OcrBox[] = sortBoxes(findDetBoxes(prob, DET_SIZE, DET_SIZE, detIn.scale));
-    hilog.info(DOMAIN, TAG, `detect ${boxes.length} boxes in ${Date.now() - tDet} ms`);
+    const allBoxes: OcrBox[] = sortBoxes(findDetBoxes(prob, DET_SIZE, DET_SIZE, detIn.scale));
+    const boxes: OcrBox[] = OcrEngine.filterExcluded(allBoxes, excludedRects);
+    hilog.info(DOMAIN, TAG, `detect ${allBoxes.length} boxes (${allBoxes.length - boxes.length} chrome-excluded) in ${Date.now() - tDet} ms`);
 
     // --- recognition ---
     const lines: OcrLine[] = [];
@@ -126,14 +127,48 @@ export class OcrEngine {
     }
     return { text: texts.join('\n'), lines };
   }
+
+  /** Drop boxes whose center lies inside the status bar / nav bar / our island rect. */
+  private static filterExcluded(boxes: OcrBox[], rects: RectPx[]): OcrBox[] {
+    if (rects.length === 0) {
+      return boxes;
+    }
+    const kept: OcrBox[] = [];
+    for (const box of boxes) {
+      let minX: number = Infinity;
+      let minY: number = Infinity;
+      let maxX: number = -Infinity;
+      let maxY: number = -Infinity;
+      for (const p of box.points) {
+        if (p.x < minX) { minX = p.x; }
+        if (p.x > maxX) { maxX = p.x; }
+        if (p.y < minY) { minY = p.y; }
+        if (p.y > maxY) { maxY = p.y; }
+      }
+      const cx: number = (minX + maxX) / 2;
+      const cy: number = (minY + maxY) / 2;
+      let excluded: boolean = false;
+      for (const r of rects) {
+        if (cx >= r.left && cx <= r.left + r.width && cy >= r.top && cy <= r.top + r.height) {
+          excluded = true;
+          break;
+        }
+      }
+      if (!excluded) {
+        kept.push(box);
+      }
+    }
+    return kept;
+  }
 }
 
 /** Convenience wrapper around the shared engine. */
 export async function extractTextFromImage(
   pixelMap: image.PixelMap,
-  mgr: resourceManager.ResourceManager
+  mgr: resourceManager.ResourceManager,
+  excludedRects: RectPx[] = []
 ): Promise<OcrResult> {
   const engine = OcrEngine.get();
   await engine.ensureLoaded(mgr);
-  return engine.extract(pixelMap);
+  return engine.extract(pixelMap, excludedRects);
 }

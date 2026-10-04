@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="132" viewBox="0 0 132 132">
+  <defs>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2F6FB"/>
+      <stop offset="1" stop-color="#8C99AA"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#5A6678"/>
+      <stop offset="0.45" stop-color="#333C4A"/>
+      <stop offset="0.55" stop-color="#242C37"/>
+      <stop offset="1" stop-color="#414C5B"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F2F8FF"/>
+      <stop offset="0.45" stop-color="#5CA0FF"/>
+      <stop offset="1" stop-color="#0A59F7"/>
+    </radialGradient>
+  </defs>
+
+  <!-- steel rim -->
+  <path d="M66 4 L118 25 V66 C118 96 95 118 66 128 C37 118 14 96 14 66 V25 Z"
+        fill="url(#rim)"/>
+  <!-- gunmetal plate -->
+  <path d="M66 12 L110 30 V66 C110 92 90 110 66 119 C42 110 22 92 22 66 V30 Z"
+        fill="url(#metal)"/>
+  <!-- inner bevel -->
+  <path d="M66 22 L100 36 V66 C100 86 84 100 66 107 C48 100 32 86 32 66 V36 Z"
+        fill="none" stroke="#93A0B0" stroke-width="2" stroke-opacity="0.75"/>
+
+  <!-- rivets -->
+  <circle cx="34" cy="30" r="3.4" fill="#D3DCE7"/>
+  <circle cx="98" cy="30" r="3.4" fill="#D3DCE7"/>
+  <circle cx="30" cy="52" r="3" fill="#D3DCE7"/>
+  <circle cx="102" cy="52" r="3" fill="#D3DCE7"/>
+
+  <!-- arc-reactor core -->
+  <circle cx="66" cy="66" r="22" fill="#0A2A66" fill-opacity="0.6"/>
+  <circle cx="66" cy="66" r="17" fill="url(#core)"/>
+  <circle cx="66" cy="66" r="17" fill="none" stroke="#EAF3FF" stroke-width="2.5"/>
+  <circle cx="66" cy="66" r="6.5" fill="#FFFFFF"/>
+</svg>

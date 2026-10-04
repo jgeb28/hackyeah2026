@@ -2,8 +2,8 @@ import { common } from '@kit.AbilityKit';
 import { RawfileAssetLoader } from '../data/assets/AssetLoader';
 import { InferenceConfig } from '../data/config/InferenceConfig';
 import { AccelerationInfo, NnrtAccelerationProbe } from '../data/datasource/NnrtAccelerationProbe';
-import { DecisionRepositoryImpl } from '../data/repository/DecisionRepositoryImpl';
 import { DecisionRepository } from '../domain/repository/DecisionRepository';
+import { createDecisionRepository } from '../dev/BackendFactory';
 import { AnalyseMessageUseCase } from '../domain/usecase/AnalyseMessageUseCase';
 
 /**
@@ -30,7 +30,7 @@ export class AppContainer {
 
     const assets = new RawfileAssetLoader(context.resourceManager);
     const repository: DecisionRepository =
-      new DecisionRepositoryImpl(this.config, assets, context.filesDir);
+      createDecisionRepository(this.config, assets, context.filesDir);
     this.analyseMessage = new AnalyseMessageUseCase(repository);
   }
 

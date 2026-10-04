@@ -12,6 +12,11 @@
     "pages": "$profile:main_pages",
     "requestPermissions": [
       {
+        // DEV-ONLY: used only by the in-app "Remote GPU" backend switch. Must be
+        // removed before the shipping build (the product is offline/on-device).
+        "name": "ohos.permission.INTERNET"
+      },
+      {
         "name": "ohos.permission.SYSTEM_FLOAT_WINDOW"
       },
       {

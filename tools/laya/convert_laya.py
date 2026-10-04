@@ -53,29 +53,25 @@ QTYPES: Dict[str, int] = {"choice": 0, "score": 1, "noul": 2}
 # Guardian's fixed schema. Order MUST match GuardianSchema.ets.
 SCHEMA: List[Dict] = [
     {
-        "key": "risk",
-        "type": "noul",
-        "instructions": "Does this message try to obtain money, credentials or personal "
-                        "data, or pressure the reader into an unsafe action?",
-        "criteria": None,
+        "key": "deception",
+        "type": "choice",
+        "instructions": "Does this text try to deceive the reader — for example by impersonating "
+                        "someone, inventing urgency or a threat, or asking for money, credentials or "
+                        "personal data?",
+        "criteria": {
+            "safe": "the text is not trying to deceive the reader",
+            "deceptive": "the text tries to deceive the reader",
+        },
     },
     {
         "key": "category",
         "type": "choice",
-        "instructions": "What kind of message is this?",
+        "instructions": "What kind of deceptive text is this?",
         "criteria": {
-            "scam": "fraud, phishing, or a request for money/credentials",
-            "misinformation": "a false or unverified alarming claim",
+            "scam": "fraud, phishing, or a request for money or credentials",
+            "misinformation": "a false or unverified alarming claim meant to mislead",
             "harassment": "abuse, threats or coercion",
-            "marketing": "an advertisement or promotion",
-            "legitimate": "a normal personal or business message",
         },
-    },
-    {
-        "key": "urgency",
-        "type": "score",
-        "instructions": "How much time pressure does the message apply?",
-        "criteria": ["none", "some pressure", "critical deadline or threat"],
     },
 ]
 

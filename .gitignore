@@ -15,6 +15,9 @@ BuildProfile.ets
 .opencode/
 tests/*.sh
 
+# --- Dependency lock files (regenerated locally; not committed) ---
+**/oh-package-lock.json5
+
 # --- Local toolchain configuration (contains absolute paths) ---
 local.properties
 **/local.properties
@@ -50,3 +53,7 @@ signatures/
 .npmrc
 **/.npmrc
 .vscode/
+
+# --- Python caches ---
+__pycache__/
+*.pyc
