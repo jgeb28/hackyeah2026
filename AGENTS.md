@@ -9,7 +9,7 @@ repository. Read it before doing any work and follow it for the entire session.
 ## 0. Workflow documentation — one team file
 
 > **All agents record their work in the single team file
-> [`HuwaweiChallenge/AI_WORKFLOW.md`](./HuwaweiChallenge/AI_WORKFLOW.md).**
+> [`AI_WORKFLOW.md`](./AI_WORKFLOW.md).**
 
 This is a mandatory hackathon deliverable. The challenge requires any team that
 uses AI tools during development **and/or** ships an AI feature to publish an AI
@@ -103,7 +103,7 @@ Prompts and tool usage should be documented **as fully as reasonably possible**.
 `AI_WORKFLOW.md` covers the **development workflow and tools only**. If any part
 of the product uses an AI model or service at runtime, document it in the
 project's AI integration document (e.g.
-[`HuwaweiChallenge/LAYA_INTEGRATION.md`](./HuwaweiChallenge/LAYA_INTEGRATION.md))
+[`LAYA_INTEGRATION.md`](./LAYA_INTEGRATION.md))
 and link that document from `AI_WORKFLOW.md`. Per feature, document:
 
 - **The model or service** used (name, provider, version).
@@ -145,7 +145,7 @@ feature's model, inference, data handling, limitations, validation and privacy.
 ## 4. Update template (prepend for every significant task)
 
 **Prepend** this block to the top of
-[`HuwaweiChallenge/AI_WORKFLOW.md`](./HuwaweiChallenge/AI_WORKFLOW.md) (newest
+[`AI_WORKFLOW.md`](./AI_WORKFLOW.md) (newest
 first) for each meaningful unit of work:
 
 ```markdown
@@ -187,7 +187,7 @@ honest, specific, and heavily compressed.
 ## 5. Configuration & prompt hygiene
 
 - If a tool reads configuration (agent configs, `opencode.jsonc`, MCP config,
-  skills), record **the relevant parts** in `HuwaweiChallenge/AI_WORKFLOW.md` — not
+  skills), record **the relevant parts** in `AI_WORKFLOW.md` — not
   the whole file if it is large. Reference the path and summarize, then quote the
   parts that shaped behavior.
 - Store secrets in environment variables or a git-ignored local file. Never put

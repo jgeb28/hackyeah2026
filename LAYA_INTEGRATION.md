@@ -11,6 +11,8 @@ non-autoregressive "System 1" decision model (ModernBERT-large + a custom RL
 decision head). It takes a **state** and **typed questions** and returns typed
 answers with calibrated probabilities. It is a classifier, not an LLM.
 
+> Code paths below are relative to `HuwaweiChallenge/`.
+
 ## Clean architecture
 
 ```
