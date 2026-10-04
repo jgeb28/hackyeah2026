@@ -42,6 +42,10 @@ export class ScreenScanner {
     let error: string = '';
     try {
       await this.ensurePermission();
+      hilog.info(DOMAIN, TAG, 'scan start: region=%{public}s',
+        region !== undefined
+          ? `${Math.round(region.x)},${Math.round(region.y)} ${Math.round(region.width)}x${Math.round(region.height)}`
+          : 'full');
       // Hide our own island so it is not part of the capture.
       await IslandOverlay.hide();
       await ScreenScanner.delay(200);
@@ -58,7 +62,8 @@ export class ScreenScanner {
       text = await createOcrEngine().recognize(frame, rects);
     } catch (err) {
       error = ScreenScanner.describe(err);
-      hilog.warn(DOMAIN, TAG, 'scan failed: %{public}s', JSON.stringify(err));
+      const reason: string = (err as Error).message !== undefined ? (err as Error).message : '';
+      hilog.warn(DOMAIN, TAG, 'scan failed: %{public}s (raw=%{public}s)', error, reason);
     } finally {
       if (frame !== undefined) {
         frame.release().catch((e: Error) => {
@@ -72,8 +77,11 @@ export class ScreenScanner {
       try {
         result = await this.laya.classify(text);
       } catch (err) {
-        error = 'The screen text was read, but the on-device model is unavailable.';
-        hilog.error(DOMAIN, TAG, 'laya classify failed: %{public}s', JSON.stringify(err));
+        const reason: string = (err as Error).message !== undefined ? (err as Error).message : '';
+        error = reason.length > 0
+          ? `The screen text was read, but the on-device model could not run (${reason}).`
+          : 'The screen text was read, but the on-device model is unavailable.';
+        hilog.error(DOMAIN, TAG, 'laya classify failed: %{public}s', reason);
       }
     }
     hilog.info(DOMAIN, TAG, 'scan text=%{public}d error=%{public}s', text.length, error);

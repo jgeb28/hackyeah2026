@@ -40,6 +40,26 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 * **Lessons Learned:** the Lite converter is cross-platform today; a quant config file replaces `--quantType`; ModernBERT's internal mask builder emits ops the Lite CPU runtime cannot convert.
 
 ---
+## Update: 2026-10-04 14:15:00
+**Developer:** s3r10us3r
+
+**Task:** make the on-device LAY A path work again + NPU (NNRt) targeting + robust logs.
+
+#### 1. AI Features
+* **Inference Flow:** on-device MindSpore Lite LAY A. Fixed sandbox materialisation and added **NNRt (NPU)** targeting; falls back to CPU (4 threads, fp32) when no accelerator is present.
+* **Limitations & Validation:** on-device inference works (emulator, CPU); seq-512 CPU inference is ~2-3 min. The NPU path is wired but unverified here (emulator has no NPU).
+
+#### 3. Development Workflow & Prompts
+* **Root cause:** `AssetLoader.copyRawfileTo` hardcoded the `.ms` header `280000004d534c32`, so the new model (`240000004d534c32` + `MSL2`) was rejected and the app silently ran a **stale sandbox copy** → `laya classify failed {}`.
+* **Fixes:** validate the `MSL2` identifier (not the varying 4-byte prefix); re-copy when the rawfile size differs from the sandbox file; probe NNRt on the main thread and pass the accelerator device id to the worker, which targets `nnrt` (else `cpu`).
+* **Logs (for fast real-hardware NPU debugging):** meta summary (questions/option counts), materialisation decision + bytes, `accelerator=… nnrtDeviceId=…`, worker `context: target=nnrt|cpu`, model load ms, `infer: stateTokens=… questions=… seqLen=…`, per-question `prefix/room/fed`, `infer ok: … latency=… logits=…`, per-question `decode … -> … conf=…`, and real error messages (no more `{}`).
+* **Key Prompts:** "Make the on-device models work as well. Make sure they get the npu acceleration on real hardware."; "add robust logs. We will soon debug on real hardware with npu."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed; on-device scan confirmed (`copied 433571816 bytes`, `model loaded`, inference ran).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** MSP Lite `.ms` = a 4-byte prefix + `MSL2`; never validate the varying prefix. Sandbox copies must be invalidated when the rawfile changes (compare sizes, not just existence).
+
+---
 ## Update: 2026-10-04 14:00:00
 **Developer:** s3r10us3r
 

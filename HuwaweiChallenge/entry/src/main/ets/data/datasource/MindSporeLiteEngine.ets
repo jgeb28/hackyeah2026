@@ -3,6 +3,7 @@ import { LayaAnswer, LayaRequest, LayaResponse, QuestionType } from '../../domai
 import { GuardianSchema, SchemaQuestion } from '../../domain/model/GuardianSchema';
 import { AssetLoader } from '../assets/AssetLoader';
 import { InferenceConfig } from '../config/InferenceConfig';
+import { NnrtAccelerationProbe, AccelerationInfo } from './NnrtAccelerationProbe';
 import { InferenceResult, LayaEngineClient } from './LayaEngineClient';
 
 const DOMAIN: number = 0x0000;
@@ -60,12 +61,24 @@ export class MindSporeLiteEngine {
     if (meta.prefixes === undefined || meta.prefixes.length === 0) {
       throw new ModelNotInstalledError('laya_guardian_meta.json has no prefixes');
     }
+    const qKeys: string[] = meta.questions !== undefined ? meta.questions : [];
+    const labels: Record<string, string[]> = meta.labels !== undefined ? meta.labels : {};
+    let counts: string = '';
+    for (let i = 0; i < qKeys.length; i++) {
+      const n: number = labels[qKeys[i]] !== undefined ? labels[qKeys[i]].length : 0;
+      counts += `${qKeys[i]}=${n} `;
+    }
+    hilog.info(DOMAIN, TAG, 'meta: maxLen=%{public}d questions=[%{public}s] options={%{public}s}',
+      meta.max_len, qKeys.join(','), counts);
 
     // MindSpore Lite cannot read a rawfile fd directly: `getRawFdSync` returns
     // the *HAP* fd plus a non-zero `offset`, and `loadModelFromFd` reads from
     // position 0 (=> "Invalid mslite model"). Materialise the asset once.
     const modelPath: string = `${this.filesDir}/${this.config.msFileName}`;
-    if (!this.assets.fileExists(modelPath)) {
+    const want: number = this.assets.rawfileSize(this.config.msModelPath);
+    const have: number = this.assets.fileExists(modelPath) ? this.assets.fileSize(modelPath) : -1;
+    if (have !== want) {
+      hilog.info(DOMAIN, TAG, 'materialising model (rawfile %{public}d, sandbox %{public}d)', want, have);
       try {
         const copied: number = await this.assets.copyRawfileTo(this.config.msModelPath, modelPath);
         hilog.info(DOMAIN, TAG, 'Materialised model: %{public}d bytes -> %{public}s', copied, modelPath);
@@ -77,7 +90,11 @@ export class MindSporeLiteEngine {
     }
 
     const tokenizerText: string = await this.assets.readText(this.config.tokenizerPath);
-    const client = new LayaEngineClient(modelPath, metaText, tokenizerText);
+    // Ask the OS for an accelerator once (main thread); the worker applies it.
+    const accel: AccelerationInfo = new NnrtAccelerationProbe().probe();
+    const nnrtDeviceId: number = this.config.useNpu ? accel.deviceID : -1;
+    hilog.info(DOMAIN, TAG, 'accelerator=%{public}s nnrtDeviceId=%{public}d', accel.backend, nnrtDeviceId);
+    const client = new LayaEngineClient(modelPath, metaText, tokenizerText, nnrtDeviceId);
     await client.start();
     this.client = client;
     hilog.info(DOMAIN, TAG, 'Engine ready (%{public}s) — inference runs in worker',
@@ -98,12 +115,17 @@ export class MindSporeLiteEngine {
 
     const questions: SchemaQuestion[] = GuardianSchema.questions();
     const width: number = GuardianSchema.maxOptions();
+    hilog.info(DOMAIN, TAG, 'decode: logits=%{public}d questions=%{public}d width=%{public}d',
+      logits.length, questions.length, width);
     for (let q = 0; q < questions.length; q++) {
       const schema: SchemaQuestion = questions[q];
       const offset: number = q * width;
       const count: number = schema.labels.length;
       const probs: number[] = softmax(logits, offset, count);
-      response.answers[schema.key] = this.toAnswer(schema, probs);
+      const answer: LayaAnswer = this.toAnswer(schema, probs);
+      response.answers[schema.key] = answer;
+      hilog.info(DOMAIN, TAG, 'decode %{public}s -> %{public}s conf=%{public}d',
+        schema.key, answer.choice, Math.round(answer.confidence * 100));
     }
     return response;
   }

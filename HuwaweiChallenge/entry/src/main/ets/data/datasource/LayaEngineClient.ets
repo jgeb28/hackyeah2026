@@ -22,6 +22,7 @@ export class LayaEngineClient {
   private readonly modelPath: string;
   private readonly metaJson: string;
   private readonly tokenizerJson: string;
+  private readonly nnrtDeviceId: number;
 
   private w: worker.ThreadWorker | null = null;
   private initPromise: Promise<void> | null = null;
@@ -31,10 +32,11 @@ export class LayaEngineClient {
   private inferReject: ((error: Error) => void) | null = null;
   private nextId: number = 1;
 
-  constructor(modelPath: string, metaJson: string, tokenizerJson: string) {
+  constructor(modelPath: string, metaJson: string, tokenizerJson: string, nnrtDeviceId: number = -1) {
     this.modelPath = modelPath;
     this.metaJson = metaJson;
     this.tokenizerJson = tokenizerJson;
+    this.nnrtDeviceId = nnrtDeviceId;
   }
 
   /** Create the worker and load the model there; resolves when ready. */
@@ -66,7 +68,8 @@ export class LayaEngineClient {
       id: this.nextId++,
       modelPath: this.modelPath,
       metaJson: this.metaJson,
-      tokenizerJson: this.tokenizerJson
+      tokenizerJson: this.tokenizerJson,
+      nnrtDeviceId: this.nnrtDeviceId
     };
     w.postMessage(req);
     return this.initPromise;

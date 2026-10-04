@@ -12,6 +12,8 @@ export interface WorkerRequest {
   modelPath?: string;
   metaJson?: string;
   tokenizerJson?: string;
+  /** NNRt device id for NPU acceleration (-1 = CPU). */
+  nnrtDeviceId?: number;
   state?: string;
 }
 
