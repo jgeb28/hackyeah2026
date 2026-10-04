@@ -9,6 +9,54 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 13:00:00
+**Developer:** s3r10us3r
+
+**Task:** ship polish — rename the app label + real launcher icons for Guardian and the Messages mock. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Rename:** the on-device ability label was literally `"label"` (`EntryAbility_label`) and the app name was `HuwaweiChallenge`; set both to **Guardian** (`entry/.../element/string.json`, `AppScope/.../element/string.json`).
+* **Icons:** generated real 1024² layered icons — `background.png` (dark / blue gradient) + `foreground.png` (the existing `shield.svg` for Guardian, a chat bubble for Messages) — using headless Chrome (SVG→PNG with transparency) + Pillow (gradients + 144² splash `startIcon.png`). Wrote to `AppScope` **and** `entry` media for both projects.
+* **Key Prompts:** "rename the app (it's label now) and add icon to it and the message mock."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL for both projects; installed both; home screen shows Guardian (shield on dark) and Messages (bubble on blue); Guardian relaunches clean (`incidents loaded: 9`).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to confirm the final icon look.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** the launcher uses the **ability** icon/label (`module.json5`) as well as `AppScope/app.json5`; the default layered foreground was a blank white PNG, so the icon looked empty until replaced.
+
+---
+## Update: 2026-10-04 12:35:00
+**Developer:** s3r10us3r
+
+**Task:** optional BYO-key DeepSeek "Describe" + Settings popup + curated Facebook misinfo case. **Not committed/pushed.**
+
+#### 1. AI Features
+* **Model/Service:** DeepSeek `deepseek-chat` (`https://api.deepseek.com/chat/completions`) — the only off-device feature, opt-in with the user's **own** API key (BYO key, no server of ours). No key is bundled.
+* **Inference Flow:** the key is stored on-device (`preferences`, store `guardian_cloud`); `DeepSeekClient.describe()` POSTs title + description + explanation and returns 2–3 plain sentences. The "Describe with DeepSeek" button shows **only** on incidents with `escalation !== 'L0'` **and** when a key is set.
+* **Data Handling & Privacy:** nothing is sent unless the user sets a key and taps Describe; the button carries an explicit "Sends this incident's text to DeepSeek." caption. The `ohos.permission.INTERNET` comment now covers this optional path too.
+* **Limitations & Validation:** button is hidden with no key; network/HTTP/empty-response errors surface a friendly message and keep the local L0 content. The live DeepSeek call itself is not exercised (no real key available); UI + gating verified on the emulator.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent on `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** new `dev/DeepSeekSettings.ets` (preferences-backed key), `dev/DeepSeekClient.ets` (NetworkKit), `components/SettingsDialog.ets` (`@CustomDialog`). Removed the inline key field from `Index` and added a top-right **Settings** button that opens the popup. `DetailTypes` now parses `escalation`; `IncidentDetail` owns the describe state and `IncidentDetailView` renders the button/result.
+* **Key Prompts:** "Make the deepseek api key a settings popup so you click settings and then a popup appears and then you can fill it"; "don't even render the button if there is no key... handle errors gracefully"; "add a curated case that throws misinfo on facebook so i can trigger the event."
+* **Testing & Debugging:** `$apiKey` in the `CustomDialogController` builder threw `ReferenceError: $apiKey is not defined` (app crash) → switched to a plain `initialKey` prop + `onSave` callback; renamed the dialog state `key` → `draftKey` (collides with base `CustomComponent.key`). Added a curated Facebook misinformation post (`facebook-feed-mock` `p2c`, the "Truth Patriots Daily" freeze-your-pension claim) built from the `unverified-alarming-news` keywords. `assembleHap` BUILD SUCCESSFUL; **31/31** unit tests; installed; Settings popup renders and the saved key persists. Chose content-only over a deterministic override so the LAY A deception gate stays authoritative.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to enter a real DeepSeek key and verify a live Describe; developer to review the curated post and the Settings layout.
+* **Security Checks:** no key in the repo; the key lives in app `preferences`; INTERNET remains optional/dev.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the curated FB post relies on the provisional LAY A deception head. The on-device LAY A `.ms` still needs re-export for the 2-question incident schema.
+* **Lessons Learned:** ArkTS `@CustomDialog` does not accept a `$state` @Link in the `CustomDialogController` builder here — pass plain props + a callback; and avoid `key` as a component state name.
+
+---
 ## Update: 2026-10-04 05:45:13
 **Developer:** s3r10us3r
 
