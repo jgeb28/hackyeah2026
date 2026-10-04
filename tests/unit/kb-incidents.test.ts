@@ -29,7 +29,7 @@ const ESCALATIONS = ['L0', 'L1', 'L2'];
 test('kb has the expected top-level shape', () => {
   assert.equal(kb.schemaVersion, 1);
   assert.equal(kb.locale, 'en');
-  assert.equal(kb.incidents.length, 10);
+  assert.equal(kb.incidents.length, 9);
   for (const s of SEVERITIES) assert.ok(typeof kb.severityColors[s] === 'string', `color ${s}`);
   assert.ok(kb.prompts.localSystem.length > 0);
   assert.ok(kb.prompts.cloudSystem.length > 0);
@@ -85,7 +85,7 @@ test('the two design scenarios sit at their intended levels', () => {
 // budget (head_max_len = 192 across all options).
 test('LAY A incident options derive from the incidents, in file order', () => {
   const labels = kb.incidents.map((i) => i.id);
-  assert.equal(labels.length, 10, 'ten incident options');
+  assert.equal(labels.length, 9, 'nine incident options');
   assert.equal(new Set(labels).size, labels.length, 'option ids are unique');
   for (const inc of kb.incidents) {
     assert.ok(inc.description.length > 0, `${inc.id} has an option description`);

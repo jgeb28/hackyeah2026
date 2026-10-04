@@ -60,16 +60,16 @@
       "severity": "CRITICAL",
       "escalation": "L0",
       "cta": "What should I do?",
-      "title": "Possible impersonation",
-      "description": "Claims to be your bank, police or tax office; pushes you to verify or pay now.",
-      "keywords": ["bank fraud department", "suspicious transaction", "verify your account", "account will be frozen", "click here", "tax office", "police", "final warning"],
-      "signals": { "required": ["authority"], "anyOf": ["credential", "link", "urgency"] },
-      "explanation": "Real banks and authorities never ask you to verify or pay through a link in a message.",
-      "remediation": ["Contact your bank using the number on your card or the official app.", "Don't tap the link or enter your details.", "Report the message."],
+      "title": "Possible impersonation or payment threat",
+      "description": "A fake bank, police or tax office pressures you to verify or pay now.",
+      "keywords": ["bank fraud department", "suspicious transaction", "verify your account", "account will be frozen", "click here", "tax office", "police", "final notice", "disconnection", "pay with gift cards", "arrest", "bitcoin", "pay today"],
+      "signals": { "required": ["authority"], "anyOf": ["credential", "link", "giftcard", "crypto", "urgency"] },
+      "explanation": "Real banks, authorities and utilities never ask you to verify or pay through a message, and never demand gift cards or crypto.",
+      "remediation": ["Contact the organisation using the number on your card, bill or official app.", "Don't tap the link, enter details, or pay by gift card or crypto.", "Report the message."],
       "actions": ["call-bank", "report", "learn-more"],
-      "sources": ["Bank security guidance"],
+      "sources": ["Bank security guidance", "FTC — gift card scams"],
       "messages": {
-        "level0": { "title": "Possible impersonation", "text": "Your bank or the authorities never ask you to 'verify' or pay through a link in a message. Contact them using the number on your card or the official app." }
+        "level0": { "title": "Possible impersonation", "text": "Your bank or the authorities never ask you to 'verify' or pay through a message, and never demand gift cards or crypto. Contact them using the official number." }
       }
     },
     {
@@ -113,26 +113,6 @@
       }
     },
     {
-      "id": "gift-card-utility-threat",
-      "version": 1,
-      "locale": "en",
-      "category": "scam",
-      "severity": "CRITICAL",
-      "escalation": "L0",
-      "cta": "What should I do?",
-      "title": "Possible payment threat scam",
-      "description": "Threatens disconnection, a fine or arrest unless you pay by gift card or crypto.",
-      "keywords": ["final notice", "disconnection", "pay with gift cards", "fine", "arrest", "legal action", "pay today", "bitcoin"],
-      "signals": { "required": ["threat"], "anyOf": ["giftcard", "crypto", "urgency"] },
-      "explanation": "Legitimate organisations never demand gift-card or crypto payment and do not threaten you by text.",
-      "remediation": ["Don't pay.", "Contact the organisation using its official number."],
-      "actions": ["report", "learn-more"],
-      "sources": ["FTC — gift card scams"],
-      "messages": {
-        "level0": { "title": "Possible payment threat scam", "text": "Utility companies and the police never demand payment by gift card or crypto, and they don't threaten you by text. Don't pay." }
-      }
-    },
-    {
       "id": "investment-guaranteed-returns",
       "version": 1,
       "locale": "en",
@@ -154,27 +134,6 @@
       }
     },
     {
-      "id": "romance-scam",
-      "version": 1,
-      "locale": "en",
-      "category": "scam",
-      "severity": "WARNING",
-      "escalation": "L1",
-      "cta": "Explain this",
-      "title": "Possible romance scam",
-      "description": "An online partner you never met keeps needing money or fees.",
-      "keywords": ["i love you", "never met", "customs", "clearance fee", "send money", "gift", "visa", "stuck abroad"],
-      "signals": { "anyOf": ["affection", "money-request", "never-met"] },
-      "explanation": "Romance scammers build trust over weeks, then invent fees and emergencies.",
-      "remediation": ["Pause and talk to someone you trust.", "Never send money to someone you haven't met."],
-      "actions": ["learn-more"],
-      "sources": ["FTC — romance scams"],
-      "messages": {
-        "level0": { "title": "Possible romance scam", "text": "Someone you've never met asking you to pay fees or send money is a common romance scam. Stop and talk to someone you trust." },
-        "level1": { "instruction": "Gently point out the red flags in this message (never met plus a money request) and suggest talking to someone they trust. Warm and non-judgemental.", "maxTokens": 140, "fallback": "level0" }
-      }
-    },
-    {
       "id": "sextortion-blackmail",
       "version": 1,
       "locale": "en",
@@ -192,6 +151,26 @@
       "sources": ["FBI — sextortion guidance"],
       "messages": {
         "level0": { "title": "Blackmail threat", "text": "This is a common sextortion or blackmail tactic. Do not pay. Keep the messages, block the sender, and report it." }
+      }
+    },
+    {
+      "id": "hate-abuse",
+      "version": 1,
+      "locale": "en",
+      "category": "harassment",
+      "severity": "CRITICAL",
+      "escalation": "L0",
+      "cta": "What should I do?",
+      "title": "Abusive message",
+      "description": "A hostile or abusive message that insults you, including telling you to harm yourself.",
+      "keywords": ["kill yourself", "kys", "go die", "you are worthless", "nobody likes you", "i hate you", "idiot", "stupid"],
+      "signals": { "anyOf": ["insult", "self-harm", "threat"] },
+      "explanation": "Abusive messages are meant to hurt. You don't have to engage — but if it touches on self-harm, please reach out to someone you trust or a support service.",
+      "remediation": ["Don't reply.", "Block and report the sender.", "If it mentions self-harm, talk to someone you trust or contact a local support service."],
+      "actions": ["report", "learn-more"],
+      "sources": ["Guidance — online abuse and self-harm support"],
+      "messages": {
+        "level0": { "title": "Abusive message", "text": "This message is abusive. You don't have to engage — block and report the sender. If it touches on self-harm, please reach out to someone you trust or a local support service." }
       }
     },
     {
