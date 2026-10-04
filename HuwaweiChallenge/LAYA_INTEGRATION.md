@@ -71,13 +71,13 @@ The graph is exported with Guardian's fixed label space baked in (see
 | `attention_mask` | int32 | `[Q, max_len]` | 1 for real tokens, 0 for pad |
 | `logits` | fp32 | `[1, Q, MAX_OPTIONS]` | per-question score per option (temperature-scaled) |
 
-`Q = 2` (deception, incident) and `MAX_OPTIONS` = the number of KB incidents (10)
+`Q = 2` (deception, incident) and `MAX_OPTIONS` = the number of KB incidents (9)
 (`GuardianSchema.maxOptions()`); `max_len` is read from `laya_guardian_meta.json`
 (256 for the shipped w8/s256 graph). The instructions, option markers, head budget
 and temperatures are **baked into the graph** by the converter
-(`tools/laya/convert_laya.py`), which builds the question from
-`rawfile/kb/en/incidents.json`. The **prefixes** (token ids) are exported to
-`laya_guardian_meta.json`, and the app builds the sequence as
+(`convert_laya.py`, kept out of the repo per `AGENTS.md` §9), which builds the
+question from `rawfile/kb/en/incidents.json`. The **prefixes** (token ids) are
+exported to `laya_guardian_meta.json`, and the app builds the sequence as
 `prefix + state + [SEP] + pad` — matching Laya's `build_sequence` exactly.
 
 > Changing `GuardianSchema` (questions/labels/`MAX_OPTIONS`) requires **re-exporting
@@ -125,7 +125,7 @@ new artefact.
 | `laya_en_w8_s256.ms` | converter output | shipped graph, contract above |
 
 The `.ms`/`.onnx`/`.mindir` files are **git-ignored** (too large); build them with
-`tools/laya/convert_laya.py` (Linux `converter_lite`).
+`convert_laya.py` (kept out of the repo; Linux `converter_lite`).
 
 ## Fallback — none (by design)
 

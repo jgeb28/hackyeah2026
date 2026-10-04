@@ -9,6 +9,37 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 07:22:00
+**Developer:** s3r10us3r
+
+**Task:** re-run the LAY A fine-tune on the 9-incident schema, calibrate it, and produce the on-device `.ms` **on Windows** (no WSL).
+
+#### 1. AI Features
+* **Model/Service:** fine-tuned LAY A = `ModernBERT-large` (frozen encoder) + 2-layer head (421 M; 26.5 M trainable), run on-device by MindSpore Lite. Questions: `deception` (safe/deceptive) + `incident` (9 KB ids).
+* **Inference Flow:** OCR text → per-question prefix + text → one batched graph forward → temperature-scaled logits; the app maps `P(deceptive)` to a verdict via calibrated thresholds.
+* **Data Handling & Privacy:** fully on-device, offline; training data lives outside the repo (`C:\guardian-data`); no PII.
+* **Limitations & Validation:** 5-fold CV on the held-out DIFrauD+UI test set. Deception AUC **0.930**; shipped gate thr **0.25** (FNR 6.9% / FPR 27.0%). Incident head is weak (acc 0.639, macro-F1 0.329; rule-derived labels) so it only picks the displayed case.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none (local tooling only).
+* **Configuration:** devserver uv env (torch 2.11.0+cu128, transformers 4.57.6); MindSpore Lite **2.4.1** Windows converter.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** keep the working-tree 2-question schema (`deception` + `incident`), recall-first bias, head-only fine-tune, w8 export.
+* **Implementation:** DIFrauD (+ filtered `political_statements` relabelled as misinformation) + synthetic UI/chrome hard negatives; 2-epoch head-only train; CV fit of temperature + threshold; temperature baked into the graph; ONNX → `.ms`.
+* **Key Prompts:** "Keep the same format we use now on-device!"; "Is the script on repo? Why can't it be done on windows?"; "set up the script on my ubuntu WSL".
+* **Testing & Debugging:** `converter_lite` **does** ship for Windows (2.4.1), but it dropped `--quantType` → weight quant now needs `--configFile` (`quant_type = WEIGHT_QUANT`). Also fixed a broken ONNX export: the graph passed a **dict** attention mask that ModernBERT never accepted (`_update_attention_mask` path emitted dynamic-shape ops) → replaced with a static-mask override.
+
+#### 4. Review & Validation
+* **Human Oversight:** product owner chose the middle operating point (FNR 5–10% / FPR 25–35%) and validates the UI on the emulator.
+* **Security Checks:** no secrets added; training data and converter stay outside the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** assuming the Windows converter was unavailable (it isn't); `--quantType=WEIGHT_QUANT` (removed in 2.4.1); dict attention mask (never supported by any transformers release).
+* **Lessons Learned:** the Lite converter is cross-platform today; a quant config file replaces `--quantType`; ModernBERT's internal mask builder emits ops the Lite CPU runtime cannot convert.
+
+---
 ## Update: 2026-10-04 13:45:00
 **Developer:** s3r10us3r
 
@@ -17,7 +48,7 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 #### 3. Development Workflow & Prompts
 * **Untracked (kept on disk, git-ignored):** `tools/fetch_model.py`, `tools/laya/convert_laya.py`, `tools/laya/rl_agent_api.py`, `tools/laya/rl_common.py`. The repo now carries app code, tests, and docs only; the LAY A conversion/fetch tooling stays local.
 * **Key Prompts:** "untrack the py scripts as well just do not delete."
-* **Follow-up:** `README.md` (provisioning), `LAYA_INTEGRATION.md`, and `AGENTS.md` §11 still reference these script paths — the docs need updating, or the scripts should ship with the Release.
+* **Follow-up (done):** `README.md` (repo layout + model provisioning + build output), `LAYA_INTEGRATION.md` (converter/asset notes; also fixed the stale incident count 10 → 9), and `AGENTS.md` §11 now state the tooling is kept out of the repo and ships with the release assets.
 
 #### 4. Review & Validation
 * **Human Oversight:** developer decision (repo holds project code/tests/docs only).

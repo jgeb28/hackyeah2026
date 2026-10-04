@@ -29,10 +29,12 @@ key is never shipped (see *Optional cloud*).
 | `HuwaweiChallenge/` | Guardian app (`entry/`) + `guardian_sdk/` HAR |
 | `mocks/mockchat/` | WeChat-like host app that reports messages via the SDK |
 | `facebook-feed-mock/` | static web feed used to demo the screen scan |
-| `tools/laya/` | LAY A → MindSpore Lite converter + validation scripts |
 | `tests/unit/` | device-free unit tests (`node --test`) |
 | `DESIGN.md`, `RUNNING.md`, `LAYA_INTEGRATION.md` | architecture, run guide, model contract |
 | `AGENTS.md`, `AI_WORKFLOW_*.md` | agent rules + per-developer AI workflow logs |
+
+> The LAY A fetch/convert helper scripts under `tools/` are **kept out of the repo**
+> (`AGENTS.md` §9) and distributed with the release assets; see *Model asset* below.
 
 ## Requirements
 
@@ -55,22 +57,25 @@ Committed to the repo: the PP-OCRv4 models (`rawfile/ocr/det.ms`, `rec.ms`,
 (`rawfile/kb/en/incidents.json`).
 
 **Not committed:** the LAY A classifier `laya_en_w8_s256.ms` (~412 MB — over GitHub's
-100 MB file limit; gzip only reaches ~382 MB, so it can't be committed either). Host
-it once (**Hugging Face** or a **GitHub Release**) and fetch it at setup time:
+100 MB file limit; gzip only reaches ~382 MB, so it can't be committed either), and
+the small **fetch/convert helper scripts** (`tools/*.py`, `tools/laya/*.py` — kept
+out of the repo per `AGENTS.md` §9 and distributed with the release assets). Host the
+model once (**Hugging Face** or a **GitHub Release**) and drop it into the rawfile dir:
 
-- **A. Fetch it (recommended):**
+- **A. Fetch it (recommended):** download the hosted `.ms` straight into
+  `entry/src/main/resources/rawfile/` and confirm it starts with the `MSL2` magic:
   ```powershell
-  python tools/fetch_model.py --url https://huggingface.co/<org>/<repo>/resolve/main/laya_en_w8_s256.ms
-  # or set it once:  $env:GUARDIAN_MODEL_URL = "...";  python tools/fetch_model.py
+  $URL = "https://huggingface.co/<org>/<repo>/resolve/main/laya_en_w8_s256.ms"
+  Invoke-WebRequest -Uri $URL -OutFile `
+      "HuwaweiChallenge/entry/src/main/resources/rawfile/laya_en_w8_s256.ms"
   ```
-  The script streams to `rawfile/laya_en_w8_s256.ms` and verifies the `MSL2` magic
-  (`--gz` if you host a gzip). To host it yourself:
+  To host it yourself:
   - **Hugging Face:** `huggingface-cli upload <org>/<repo> laya_en_w8_s256.ms`
     (direct URL: `https://huggingface.co/<org>/<repo>/resolve/main/laya_en_w8_s256.ms`).
-  - **GitHub Release:** `gh release create guardian-model laya_en_w8_s256.ms` (≤ 2 GB).
-- **B. Build it:** on Linux with MindSpore Lite's `converter_lite`, run
-  `python tools/laya/convert_laya.py --model-dir <laya_model> --quantize WEIGHT_QUANT`
-  (see `LAYA_INTEGRATION.md` for the full contract).
+  - **GitHub Release:** `gh release create guardian-v1 laya_en_w8_s256.ms` (≤ 2 GB).
+- **B. Build it:** the converter (`convert_laya.py`, kept out of the repo) runs on
+  Linux with MindSpore Lite's `converter_lite`; see `LAYA_INTEGRATION.md` for the
+  full contract.
 
 If the `.ms` is absent the app still **builds, installs and runs**; the classifier
 reports that the on-device model is unavailable (no fabricated result).
@@ -87,7 +92,8 @@ Set-Location $PROJ
     assembleHap --no-daemon
 ```
 
-Output: `entry/build/default/outputs/default/entry-default-unsigned.hap`.
+Output: `entry/build/default/outputs/default/entry-default-unsigned.hap` (or
+`entry-default-signed.hap` when a local signing config is present).
 
 ## Install & launch
 

@@ -303,9 +303,9 @@ iterate quickly; the shipping product is on-device and offline.
 - **The remote path and the on-device path must implement the same model schema,
   questions, and decision policy before any push/PR.** A change made only on the
   host (e.g. an edited LAY A question set or threshold) is **not "done"** until
-  the on-device `.ms` is re-exported to match (`tools/laya/convert_laya.py`) and
-  re-validated. The LAY A questions are **baked into the graph**, so any question
-  change always requires a re-export.
+  the on-device `.ms` is re-exported to match (`convert_laya.py`, kept out of the
+  repo per §9) and re-validated. The LAY A questions are **baked into the graph**,
+  so any question change always requires a re-export.
 - **Never ship the remote path.** Remove `ohos.permission.INTERNET` and the
   remote/dev code before the submission build; the shipping app stays on-device
   and offline.
