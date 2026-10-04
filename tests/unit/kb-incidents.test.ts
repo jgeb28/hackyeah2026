@@ -75,7 +75,7 @@ test('the escalation level matches the message layers present', () => {
 test('the two design scenarios sit at their intended levels', () => {
   const byId = new Map<string, Incident>(kb.incidents.map((i): [string, Incident] => [i.id, i]));
   assert.equal(byId.get('family-emergency-money')?.escalation, 'L0');
-  assert.equal(byId.get('misinfo-breaking-event')?.escalation, 'L2');
+  assert.equal(byId.get('unverified-alarming-news')?.escalation, 'L2');
 });
 
 // The single LAY A "incident" question is generated from the KB: one option per

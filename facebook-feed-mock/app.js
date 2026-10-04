@@ -51,6 +51,27 @@ const posts = [
     ],
     shares: 12800
   },
+  // CURATED MISINFO CASE: a believable, source-free viral claim. Tuned against the
+  // host LAY A head (P(deceptive)~0.47 -> DANGEROUS; incident -> unverified-alarming-news
+  // L2). Uses the incident keywords: breaking / they don't want you to know / sources
+  // say / share now / urgent / wake up. Scan this post to reach the "Check this claim" case.
+  {
+    id: 'p2c',
+    name: 'Truth Patriots Daily',
+    avatar: 'a6',
+    page: true,
+    breaking: true,
+    time: 'Just now',
+    audience: '🌍',
+    text: '🚨 BREAKING \u2014 nobody is reporting this, they don\u2019t want you to know\n\nSources say something huge is about to happen and the mainstream media is hiding it from us. An insider confirms the news will be deleted within hours and there is no appeal.\n\nShare now before it gets deleted \u2014 once it is gone, nobody can warn anyone. Wake up. This is urgent.',
+    image: null,
+    reactions: { like: 8400, love: 220, haha: 14, wow: 6100, sad: 1900, angry: 15200 },
+    comments: [
+      { name: 'Ania Nowak', avatar: 'a9', text: 'Nobody in the news is talking about this. Sending it to everyone I know.' },
+      { name: 'Piotr Mazur', avatar: 'a2', text: 'Screenshotted before it disappears. You can never be too careful!!' }
+    ],
+    shares: 27400
+  },
   {
     id: 'p2b',
     name: 'Parcel Express',
