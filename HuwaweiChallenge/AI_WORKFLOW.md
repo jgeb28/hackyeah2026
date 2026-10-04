@@ -89,5 +89,3 @@ We recorded our dead ends as carefully as our wins.
   (model, inference, data handling, validation, privacy).
 - [`DESIGN.md`](../DESIGN.md) and [`RUNNING.md`](./RUNNING.md) — architecture and
   the run guide.
-- The earlier per-developer `AI_WORKFLOW_*.md` logs in the repo root hold the
-  full prompt-by-prompt history.
