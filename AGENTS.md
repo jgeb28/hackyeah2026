@@ -103,7 +103,7 @@ Prompts and tool usage should be documented **as fully as reasonably possible**.
 `AI_WORKFLOW.md` covers the **development workflow and tools only**. If any part
 of the product uses an AI model or service at runtime, document it in the
 project's AI integration document (e.g.
-[`LAYA_INTEGRATION.md`](./LAYA_INTEGRATION.md))
+[`AI_INTEGRATION.md`](./AI_INTEGRATION.md))
 and link that document from `AI_WORKFLOW.md`. Per feature, document:
 
 - **The model or service** used (name, provider, version).

@@ -9,7 +9,39 @@ This is the team's AI workflow. It describes **how we used AI agents to build
 Guardian** — the tools, the process, and the lessons. The product's own on-device
 AI (the model, its inference flow, data handling, limitations, validation and
 privacy) is a separate concern and is documented in
-[`LAYA_INTEGRATION.md`](./LAYA_INTEGRATION.md).
+[`AI_INTEGRATION.md`](./AI_INTEGRATION.md).
+
+---
+## Update: 2026-10-04 08:23:05
+**Developer:** s3r10us3r
+
+**Task:** ship the fine-tuned on-device model, host it on Hugging Face, add repo
+build scripts, and reorganize the docs.
+
+#### 1. AI Features
+* **Model/Service:** fine-tuned LAY A (ModernBERT-large + 2-layer head, 421 M; 26.5 M trainable, frozen encoder) with two baked questions — `deception` (safe/deceptive) + `incident` (8 KB ids). OCR: PP-OCRv4 det+rec on MindSpore Lite. Optional DeepSeek "Describe" via a backend (key server-side).
+* **Inference Flow:** screen capture → OCR → tokenize → one batched graph forward → temperature-scaled logits → `P(deceptive)` vs the gate thresholds → incident lookup. Offline by default.
+* **Data Handling & Privacy:** on-device, in-memory; nothing transmitted; frame released after OCR; training data lives outside the repo.
+* **Limitations & Validation:** deception AUC 0.930 (5-fold CV); shipped gate 0.25 (~7% FNR / 27% FPR); incident macro-F1 ≈ 0.33 (rule-derived labels; display only).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** the `hf-cli` skill (Hugging Face Hub CLI v2.1.1); no MCP servers.
+* **Configuration:** devserver uv env (torch 2.11.0+cu128, transformers 4.57.6); MindSpore Lite 2.4.1 (Windows + Linux).
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** keep the 2-question schema; prefer a schema/label fix over a retrain when the head already learned the class.
+* **Implementation:** DIFrauD + UI augmentation → head-only fine-tune → temperature+threshold calibration; fixed a KB-id/`no-threat` regression by restoring `misinfo-breaking-event`, dropping `no-threat` (8 options) and re-exporting the **existing** head; added `fetch_model.py` + `build.ps1`/`build.sh`/`build.py`; renamed `LAYA_INTEGRATION.md` → `AI_INTEGRATION.md`.
+* **Key Prompts:** "Make a windows, unix (macos/linux) and python build scripts … build only the main app"; "smuggle the on-device model … host it on hugging-face"; "rename laya integration to ai_integration.md".
+* **Testing & Debugging:** confirmed the HAP bundles the models (425 MB); uploaded to `s3r10us3r/LAYA-hackyeah2026` and re-downloaded via `fetch_model.py`; `build.ps1`/`build.py` ran green; 31/31 node unit tests.
+
+#### 4. Review & Validation
+* **Human Oversight:** product owner set the gate policy and validates on-device; the dev server reproduced the fake-news case.
+* **Security Checks:** the HF token stays in the CLI config; no secrets in the repo; `*.ms`/`*.onnx` git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** assuming the Windows converter was unavailable (it ships); `--quantType` (removed in 2.4.1 → `--configFile`); a dict attention mask ModernBERT never accepted.
+* **Lessons Learned:** the incident head needed a KB-id/option-set fix, not a retrain; keep large models out of git and fetch them; one install entry point (fetch → build → install) is the reproducible path.
 
 ## The agents we worked with
 
@@ -86,7 +118,7 @@ We recorded our dead ends as carefully as our wins.
 
 ## Read more
 
-- [`LAYA_INTEGRATION.md`](./LAYA_INTEGRATION.md) — the on-device AI feature
+- [`AI_INTEGRATION.md`](./AI_INTEGRATION.md) — the on-device AI feature
   (model, inference, data handling, validation, privacy).
 - [`DESIGN.md`](./DESIGN.md) and [`RUNNING.md`](./RUNNING.md) — architecture and
   the run guide.

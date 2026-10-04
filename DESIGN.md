@@ -845,22 +845,21 @@ message carries the case's `cta`, and only a tap escalates.
 - **L2 "Check this claim"** needs explicit consent and a **grounded** cloud lookup
   that returns cited `sources` (never model memory); offline or declined → L0.
 
-### 18.4 The 9 incidents
+### 18.4 The 8 incidents
 
 | id | sev | esc | description (LAY A option text) |
 | --- | --- | --- | --- |
 | `family-emergency-money` *(scenario A)* | CRITICAL | L0 | A relative in trouble asks for urgent money and says not to call. |
-| `unverified-alarming-news` *(scenario B)* | WARNING | L2 | Big, alarming news with a weak or no source, urging you to share it. |
+| `misinfo-breaking-event` *(scenario B)* | WARNING | L2 | Big, alarming news with a weak or no source, urging you to share it. |
 | `bank-authority-impersonation` | CRITICAL | L0 | Claims to be your bank, police, tax office or utility and pressures you to verify or pay now. |
 | `delivery-fee-smishing` | WARNING | L0 | A held-parcel message asks for a small fee or your details via a link. |
 | `otp-verification-theft` | CRITICAL | L0 | Someone asks you to read out or forward a one-time code. |
 | `investment-guaranteed-returns` | CRITICAL | L1 | Promises guaranteed high returns and pushes you off-platform. |
 | `sextortion-blackmail` | CRITICAL | L0 | Threatens to expose private images or information unless you pay. |
 | `hate-abuse` | CRITICAL | L0 | A hostile or abusive message that insults you, including telling you to harm yourself. |
-| `no-threat` | INFO | L0 | An ordinary message with no scam or deceptive intent. |
 
-7 cases are fully offline (L0), 1 uses the on-device LLM (L1), 1 uses the cloud with
-consent (L2). LAY A's incident question offers all 9 ids as options (option text =
+6 cases are fully offline (L0), 1 uses the on-device LLM (L1), 1 uses the cloud with
+consent (L2). LAY A's incident question offers all 8 ids as options (option text =
 the `description`); the chosen case supplies `severity` + `messages`.
 
 ### 18.5 Caveats
@@ -917,5 +916,5 @@ misinformation dataset** and defining the label/decision format.
   `OpenHarmony.p12`, `hap-sign-tool.jar`).
 - Runtime/AI: `@kit.MindSporeLiteKit` / `@ohos.ai.mindSporeLite`;
   `convaiinnovations/laya` model card (Hugging Face).
-- Research log: `AI_WORKFLOW_s3r10us3r.md`; repo research:
+- Research log: `AI_WORKFLOW.md`; repo research:
   `docs/ONDEVICE_AI_VALIDATION.md`, `docs/DELIVERABLES.md`.

@@ -9,7 +9,7 @@ import { AssetLoader } from '../assets/AssetLoader';
  * and reproduces the encoding in ArkTS so no text ever leaves the device.
  *
  * NOTE: this port is written against the tokenizer definition but has **not yet
- * been diffed against the Python tokenizer on device** (see LAYA_INTEGRATION.md).
+ * been diffed against the Python tokenizer on device** (see AI_INTEGRATION.md).
  * `MindSporeLiteEngine` validates ids against the vocabulary it loaded.
  */
 
