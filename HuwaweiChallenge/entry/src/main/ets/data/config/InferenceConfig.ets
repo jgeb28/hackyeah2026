@@ -10,7 +10,7 @@
  * Weight configuration for the on-device model.
  *
  * Quantisation is a build-time step with the MindSpore Lite converter (see
- * LAYA_INTEGRATION.md). This records which artefact the app must load.
+ * AI_INTEGRATION.md). This records which artefact the app must load.
  *
  *   dtype   | ~size (421M params) | use
  *   --------|---------------------|------------------------------------------

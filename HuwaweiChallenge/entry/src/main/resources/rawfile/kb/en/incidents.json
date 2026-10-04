@@ -32,7 +32,7 @@
       }
     },
     {
-      "id": "unverified-alarming-news",
+      "id": "misinfo-breaking-event",
       "version": 1,
       "locale": "en",
       "category": "misinformation",
@@ -171,26 +171,6 @@
       "sources": ["Guidance — online abuse and self-harm support"],
       "messages": {
         "level0": { "title": "Abusive message", "text": "This message is abusive. You don't have to engage — block and report the sender. If it touches on self-harm, please reach out to someone you trust or a local support service." }
-      }
-    },
-    {
-      "id": "no-threat",
-      "version": 1,
-      "locale": "en",
-      "category": "notice",
-      "severity": "INFO",
-      "escalation": "L0",
-      "cta": "What is this?",
-      "title": "No threat detected",
-      "description": "An ordinary message with no scam or deceptive intent.",
-      "keywords": ["hello", "thanks", "see you", "meeting", "ok"],
-      "signals": { "anyOf": ["benign"] },
-      "explanation": "Guardian found no scam or misleading intent in this text.",
-      "remediation": ["Stay cautious with links, payments and personal data."],
-      "actions": ["learn-more"],
-      "sources": [],
-      "messages": {
-        "level0": { "title": "No threat detected", "text": "This text does not look like a scam or misleading content. Stay cautious with links and payments." }
       }
     }
   ]

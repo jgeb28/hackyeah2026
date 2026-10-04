@@ -30,8 +30,8 @@ key is never shipped (see *Optional cloud*).
 | `mocks/mockchat/` | WeChat-like host app that reports messages via the SDK |
 | `facebook-feed-mock/` | static web feed used to demo the screen scan |
 | `tests/unit/` | device-free unit tests (`node --test`) |
-| `DESIGN.md`, `RUNNING.md`, `LAYA_INTEGRATION.md` | architecture, run guide, model contract |
-| `AGENTS.md`, `AI_WORKFLOW_*.md` | agent rules + per-developer AI workflow logs |
+| `DESIGN.md`, `RUNNING.md`, `AI_INTEGRATION.md` | architecture, run guide, AI/model contract |
+| `AGENTS.md`, `AI_WORKFLOW.md`, `DATA_SCIENCE.md` | agent rules, AI workflow log, model data science |
 
 > The LAY A fetch/convert helper scripts under `tools/` are **kept out of the repo**
 > (`AGENTS.md` §9) and distributed with the release assets; see *Model asset* below.
@@ -56,31 +56,49 @@ Committed to the repo: the PP-OCRv4 models (`rawfile/ocr/det.ms`, `rec.ms`,
 (`rawfile/tokenizer.json`, `rawfile/laya_guardian_meta.json`), and the incident KB
 (`rawfile/kb/en/incidents.json`).
 
-**Not committed:** the LAY A classifier `laya_en_w8_s256.ms` (~412 MB — over GitHub's
-100 MB file limit; gzip only reaches ~382 MB, so it can't be committed either), and
-the small **fetch/convert helper scripts** (`tools/*.py`, `tools/laya/*.py` — kept
-out of the repo per `AGENTS.md` §9 and distributed with the release assets). Host the
-model once (**Hugging Face** or a **GitHub Release**) and drop it into the rawfile dir:
+**Not committed:** the LAY A classifier `laya_en_w8_s256.ms` (~413 MB — over GitHub's
+100 MB file limit; gzip only reaches ~382 MB, so it can't be committed either). It is
+hosted on **Hugging Face** at
+[`s3r10us3r/LAYA-hackyeah2026`](https://huggingface.co/s3r10us3r/LAYA-hackyeah2026)
+(the LAY A `.ms` + metadata + tokenizer and the PP-OCRv4 `.ms` all live there). Drop
+them into the rawfile dir:
 
-- **A. Fetch it (recommended):** download the hosted `.ms` straight into
-  `entry/src/main/resources/rawfile/` and confirm it starts with the `MSL2` magic:
+- **A. Fetch it (recommended):** `fetch_model.py` (distributed with the release
+  assets; `tools/` stays out of the repo per `AGENTS.md` §9) downloads every model
+  asset from the HF repo straight into `rawfile/` and verifies the `MSL2` magic and
+  byte size:
   ```powershell
-  $URL = "https://huggingface.co/<org>/<repo>/resolve/main/laya_en_w8_s256.ms"
+  python tools/fetch_model.py --out-dir .        # or --repo <org>/<name>, HF_TOKEN=...
+  ```
+  Or fetch the one file directly:
+  ```powershell
+  $URL = "https://huggingface.co/s3r10us3r/LAYA-hackyeah2026/resolve/main/laya_en_w8_s256.ms"
   Invoke-WebRequest -Uri $URL -OutFile `
       "HuwaweiChallenge/entry/src/main/resources/rawfile/laya_en_w8_s256.ms"
   ```
-  To host it yourself:
-  - **Hugging Face:** `huggingface-cli upload <org>/<repo> laya_en_w8_s256.ms`
-    (direct URL: `https://huggingface.co/<org>/<repo>/resolve/main/laya_en_w8_s256.ms`).
-  - **GitHub Release:** `gh release create guardian-v1 laya_en_w8_s256.ms` (≤ 2 GB).
+  To re-host: `hf upload <org>/<repo> <file>` (or a GitHub Release, ≤ 2 GB).
 - **B. Build it:** the converter (`convert_laya.py`, kept out of the repo) runs on
-  Linux with MindSpore Lite's `converter_lite`; see `LAYA_INTEGRATION.md` for the
-  full contract.
+  Windows or Linux with MindSpore Lite's `converter_lite`; see `AI_INTEGRATION.md`
+  for the full contract.
 
 If the `.ms` is absent the app still **builds, installs and runs**; the classifier
 reports that the on-device model is unavailable (no fabricated result).
 
 ## Build
+
+One-command build (fetches the models if missing, then builds **only the `entry`
+app** — not the mocks): `build.ps1` (Windows), `build.sh` (macOS/Linux), or
+`build.py` (any OS):
+
+```powershell
+.\build.ps1                 # Windows
+python build.py             # cross-platform
+```
+```bash
+./build.sh                  # macOS / Linux
+```
+
+Or build directly with hvigor:
 
 ```powershell
 $DEVECO   = "<DevEco Studio>"          # e.g. C:\Program Files\Huawei\DevEco Studio
@@ -143,7 +161,11 @@ hosted proxy and point the app's `baseUrl` at it.
 
 ## Docs
 
-- `DESIGN.md` — product/architecture design + §17 as-built + §18 incident KB.
-- `RUNNING.md` — how to run, island behaviour, logs, limitations.
-- `LAYA_INTEGRATION.md` — the LAY A on-device model contract + AI feature notes.
-- `AI_WORKFLOW_*.md` — per-developer AI-assisted workflow logs (required deliverable).
+| File | What it contains |
+| --- | --- |
+| `DESIGN.md` | Product & architecture design; §17 as-built; §18 the incident KB. |
+| `RUNNING.md` | How to run: island behaviour, the scan flow, live logs, limitations. |
+| `AI_INTEGRATION.md` | The on-device AI: what LAY A is, the OCR, the DeepSeek fallback, the fine-tuning **data science**, the model contract, privacy. |
+| `DATA_SCIENCE.md` | Deep dive: dataset ([DIFrauD](https://huggingface.co/datasets/difraud/difraud)), incident labelling, fine-tune, calibration, 5-fold CV results. |
+| `AI_WORKFLOW.md` | The team's AI-assisted development workflow (required deliverable). |
+| `AGENTS.md` | The rules every AI agent followed in this repo. |

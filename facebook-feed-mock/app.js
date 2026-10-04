@@ -51,9 +51,9 @@ const posts = [
     ],
     shares: 12800
   },
-  // CURATED MISINFO CASE: a believable, source-free viral claim. Tuned against the
-  // host LAY A head (P(deceptive)~0.47 -> DANGEROUS; incident -> unverified-alarming-news
-  // L2). Uses the incident keywords: breaking / they don't want you to know / sources
+  // CURATED MISINFO CASE: a believable, source-free viral claim. With the fine-tuned
+  // LAY A head: P(deceptive)~0.99 -> DANGEROUS, incident -> misinfo-breaking-event
+  // (L2). Uses the incident keywords: breaking / they don't want you to know / sources
   // say / share now / urgent / wake up. Scan this post to reach the "Check this claim" case.
   {
     id: 'p2c',
