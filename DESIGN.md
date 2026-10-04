@@ -1,28 +1,25 @@
 # Guardian — an on-device safety copilot for HarmonyOS
 
-> **Status:** implemented — a **camera-anchored Smart Island** doing screen-region
-> scan (capture → crop → PP-OCRv4 → LAY A → incident) plus the **SDK trigger** path
-> with automated tests; §16 remains design/roadmap. See **§17 As-built**.
+> **Status:** implemented and exercised on the HarmonyOS emulator. The primary
+> as-built path is a **camera-anchored Smart Island** doing a **screen-region scan**
+> (capture → crop → PP-OCRv4 → **LAY A** → incident). A second, demo path
+> (**SDK trigger** from an integrated app) also exists and is covered by tests.
+> See **§17 As-built** for the code map; §16 is design-only.
 > **Date:** 2026-10-04
 > **Target platform:** **HarmonyOS** (Huawei), native **ArkTS / ArkUI**
-> **API level:** minimum **API 20**; the dev/CI build compiles against the DevEco
-> **HarmonyOS** SDK (`6.1.1(24)`) and runs on the HarmonyOS phone emulator.
+> **API level:** minimum **API 20** (`compatibleSdkVersion 6.0.0(20)`); the build
+> compiles against the DevEco **HarmonyOS** SDK (`6.1.1(24)`) and runs on the
+> HarmonyOS phone emulator.
 > **Challenge areas:** *Human-Centric Technology* (accessible, wellbeing-focused
 > guidance) + *Intelligent Experiences* (on-device AI).
 >
-> **Scope decision (2026-10-03):** the submission targets **HarmonyOS only** and
-> is **phased**:
-> - **Phase 1 (hackathon — implemented):** the **in-app SDK** trigger with
->   **SDK-driven local notifications** as the alert surface. This is our
->   *simulation* of the system-app experience and runs on the emulator.
-> - **Phase 2 (real, if time):** **screen capture → on-device OCR**, which reads
->   *other apps without their cooperation* — the closest a third-party HarmonyOS
->   app gets to system-level access. Requires a real device (AVScreenCapture is
->   not supported on the emulator).
-> - **North star (§16):** true **first-level (system) access** (accessibility /
->   notification triggers), reachable only with system signing.
->
-> The engine is identical across phases; only the `IngestSource` changes.
+> **As-built detection is LAY A-only.** Both the verdict and the incident come from
+> the fine-tuned on-device model; there is **no deterministic/rules classifier and
+> no embedding/RAG retrieval wired into the product**. Sections that describe those
+> (§6/§8/§9) are marked where they are design-only or legacy. The model, its
+> fine-tune and calibration are in `AI_INTEGRATION.md` / `DATA_SCIENCE.md`.
+> **North star (§16):** true first-level (system) access (accessibility /
+> notification triggers), reachable only with system signing.
 
 ---
 
@@ -32,28 +29,28 @@ Guardian is an **on-device safety copilot**. It acquires text through the trigge
 that are viable for a normal HarmonyOS app, runs **local inference** to classify
 it, and warns the user about **scams and misleading content** before they act.
 
-**Triggers, by phase (HarmonyOS, third-party):**
+**Triggers (HarmonyOS, third-party app):**
 
-1. **Phase 1 — A1 in-app SDK.** Integrated apps report text on render; Guardian
-   classifies on-device and raises an alert. No OS permission. Runs on the
-   emulator; this is our hackathon simulation of the system-wide experience.
-2. **Phase 2 — screen capture → on-device OCR (the real path).** With the user's
-   consent, Guardian captures the screen (full-screen `screenshot.capture()`, or
-   continuous `AVScreenCapture`) and OCRs it on-device. **This reads other apps
-   without their cooperation** and is the closest third-party approximation of
-   system-level access. Real device only (see §4/§5).
-3. **Optional — user-initiated share / clipboard.** The user explicitly sends a
-   suspicious message to Guardian.
-4. **Alert surface — local notifications** (+ vibration) opening an in-app
-   overlay. Notifications are the *output*, not a trigger (see §10).
+1. **Screen-region scan (as built, primary).** The user taps the island's **Select
+   area** and drags a box over on-screen text; Guardian captures the screen
+   (`screenshot.capture()`), crops to the box, OCRs it on-device and classifies it.
+   This reads other apps **without their cooperation** — the closest a third-party
+   app gets to system-level access — and runs on the emulator (CPU).
+2. **In-app SDK (as built, demo path).** An integrated app reports text on render
+   via `GuardianClient`; Guardian classifies on-device and posts a local
+   notification. No OS permission; requires host-app cooperation.
+3. **Alert surface — the floating island** (+ a local notification on the SDK path).
+   Notifications are the *output*, not a trigger (see §10).
+4. **Not built:** continuous `AVScreenCapture`, user-initiated share/clipboard, and
+   the system-access triggers (§16).
 
 **North star (§16):** with **first-level system access** (system signing),
 Guardian would read the active window's text tree (accessibility) and receive
 message notifications directly — the "react whenever a message is rendered in any
 app" vision. Not reachable by a third-party HarmonyOS app today.
 
-- **One engine, multiple detectors** — scam/phishing and misinformation share a
-  single acquire → classify → retrieve → respond pipeline.
+- **One engine** — scam/phishing and misinformation share a single
+  acquire → classify → explain → warn pipeline.
 - **On-device by default** — no content leaves the phone unless the user
   explicitly consents to a cloud escalation for a specific incident.
 - **Advisory only** — Guardian never takes actions (no auto-pay, no auto-close,
@@ -61,10 +58,10 @@ app" vision. Not reachable by a third-party HarmonyOS app today.
 
 ### One-line description
 
-> An on-device AI copilot that detects scam and misinformation content from
-> messages an integrated app hands it — and, on the roadmap, from any app once it
-> has system access — then guides the user to a safe action, fully offline, with
-> explicit opt-in and a consent-gated cloud fallback.
+> An on-device safety copilot that checks the on-screen text you point it at —
+> screen-region OCR plus a fine-tuned local classifier — warns about scams and
+> misleading content before you act, and runs offline with an optional,
+> user-enabled cloud "Describe".
 
 ---
 
@@ -110,9 +107,9 @@ app" vision. Not reachable by a third-party HarmonyOS app today.
 ### Goals
 
 - Detect **scam/phishing** and **misinformation** from message text, on-device.
-- **Phase 1:** demonstrate end-to-end detection via the in-app SDK (no restricted
-  permissions). **Phase 2:** detect **without target-app cooperation** via screen
-  capture → OCR — the closest third-party approximation of system access.
+- Detect **without target-app cooperation** via an on-device **screen-region
+  scan** (capture → OCR → LAY A): the user selects the text to check. An **in-app
+  SDK** path (a host app reports text it rendered) is also available.
 - Keep **content private**: local inference by default, explicit consent for any
   cloud use.
 - Give **actionable, explainable** guidance, not just a label.
@@ -120,15 +117,15 @@ app" vision. Not reachable by a third-party HarmonyOS app today.
   primary elderly persona.
 - Run on a **HarmonyOS emulator or device** (CPU baseline; NPU on device) as the
   reproducible target.
-- Keep a **clean seam** (`IngestSource`) so Phase 2 and the system-access triggers
-  (§16) can be added without changing the engine.
+- Keep a **clean seam** (`IngestSource`) so additional triggers (e.g. the
+  system-access sources in §16) can be added without changing the engine.
 
 ### Non-goals (shipping build)
 
 - **No third-party system access.** We do **not** assume system-app signing,
   the accessibility extension, or restricted permissions in the shipping build.
 - **No silent screen reading.** The screen is read only on an explicit,
-  user-consented capture (Phase 2).
+  user-consented capture (the screen-region scan).
 - **A floating window, with an ACL.** The shipping UI is a `TYPE_FLOAT` window
   (`ohos.permission.SYSTEM_FLOAT_WINDOW`, `system_basic`), which requires it to be
   listed in the signing profile's `acls.allowed-acls` (§12). No *other* restricted
@@ -184,10 +181,10 @@ blocking the build.
 | Asset | Purpose |
 | --- | --- |
 | **LAYA** classifier converted to MindSpore Lite (`*.ms`), shipped in `resources/rawfile` | Verdict classification (§8) |
-| Small sentence-embedder (`*.ms`) | KB retrieval / RAG (§9) |
+| Small sentence-embedder (`*.ms`) — **design, not built** | KB retrieval / RAG (§9) |
 | Curated **KB corpus** (scam patterns, misinformation heuristics, remediation templates) | Explanation + suggested actions (§9) |
 
-### 4.5 Phase 2 prerequisites (screen capture → OCR — the real path)
+### 4.5 Screen capture → OCR prerequisites (the as-built capture path)
 
 | Requirement | Value / note |
 | --- | --- |
@@ -216,9 +213,9 @@ drive the shipping architecture.
 
 | Capability | API | Viable? | Notes |
 | --- | --- | --- | --- |
-| **A1 — in-app text ingress** | our `GuardianClient` (HAR) called by the host app on render | ✅ **Yes** — no OS permission | Host owns the text and reports it. Full message text, highest fidelity. **Implemented** as a common-event report (`com.hackyeah.guardian.MESSAGE_RENDERED`). **Primary trigger.** |
+| **A1 — in-app text ingress** | our `GuardianClient` (HAR) called by the host app on render | ✅ **Yes** — no OS permission | Host owns the text and reports it. Full message text, highest fidelity. **Implemented** as a common-event report (`com.hackyeah.guardian.MESSAGE_RENDERED`). **Demo path.** |
 | **Local notification + vibration** | `@ohos.notificationManager` | ✅ Yes | The **alert surface** (SDK-driven). User must allow notifications. |
-| **Phase 2 — screen capture → OCR** | `@ohos.screenshot.capture()` (full screen, `CUSTOM_SCREEN_CAPTURE`), `AVScreenCapture` (continuous) | ✅ Yes (with consent) | `CUSTOM_SCREEN_CAPTURE` = `normal` / `user_grant` (API 14), requested from a foreground window. `AVScreenCapture` needs a continuous task and is **real-device only** (no emulator). `CAPTURE_SCREEN` is system-only. |
+| **Screen capture → OCR (as built, primary)** | `@ohos.screenshot.capture()` (full screen, `CUSTOM_SCREEN_CAPTURE`), `AVScreenCapture` (continuous) | ✅ Yes (with consent) | `CUSTOM_SCREEN_CAPTURE` = `normal` / `user_grant` (API 14), requested from a foreground window. The continuous `AVScreenCapture` path is **not built** and is **real-device only** (no emulator). `CAPTURE_SCREEN` is system-only. |
 | Manual "scan this" | `ShareExtensionAbility`, foreground `pasteboard` | ✅ Yes | User-initiated, privacy-clean. Optional. |
 | On-device inference | `@kit.MindSporeLiteKit` / `@ohos.ai.mindSporeLite` | ✅ Yes | CPU on emulator; `NNRTDeviceType.ACCELERATOR` → NPU on device. |
 | Remote push (Push Kit) | HMS **Push Kit** | ✅ Yes (AGC + Push capability) | Server-originated; needs network + AGC + token. **Not a trigger** for us — see §10. |
@@ -235,15 +232,15 @@ drive the shipping architecture.
    accessibility service. The detection engine is fed by an `IngestSource`
    abstraction: `InAppSdkSource` (SDK path) and the screen scanner + region
    selector (`vision/ScreenScanner`, `alert/SelectorOverlay`, `pages/SelectArea`).
-2. **Phase 1** coverage is **partner/integration-driven** (a target app must call
-   the SDK). **Phase 2 (OCR)** removes that requirement and reads any app on a
-   real device — at a CPU/NPU and privacy cost — which is the closest a
-   third-party HarmonyOS app gets to system access.
+2. The **screen-region scan** reads other apps on the emulator without their
+   cooperation — the closest a third-party app gets to system access. The **SDK
+   path** needs a target app to call the SDK but is higher-fidelity and adds no OS
+   permission.
 3. Alerts are delivered as **local notifications** + an in-app overlay; the
    literal "Smart Island over the chat app" UX is out of scope (Live View adapter
    is a documented device stretch).
-4. The engine is **trigger-agnostic**, so Phase 2 and the system-access triggers
-   in §16 plug in behind the same `IngestSource` interface.
+4. The engine is **trigger-agnostic**, so additional triggers (e.g. the
+   system-access sources in §16) plug in behind the same `IngestSource` interface.
 
 ---
 
@@ -261,14 +258,14 @@ flowchart LR
       OCR["ScreenScanner\nscreenshot → crop → OCR"]
       ORCH["Orchestrator\n(debounce, dedupe, budget)"]
       CLS["Classifier\nLAYA (.ms) → verdict"]
-      RAG["Retrieval\nembedding (.ms) + KB"]
-      ESC["Escalation\non-device LLM → cloud*"]
+      RAG["Retrieval / RAG\n(design, not built)"]
+      ESC["Escalation\n(on-device LLM not built)"]
       UI["AlertService\n(local notification + overlay UIAbility)"]
       LOG["Local detection log\n(user-visible, deletable)"]
     end
 
     Partner --> SDK
-    OCR -. Phase 2 .-> ORCH
+    OCR -. primary .-> ORCH
     SDK --> ORCH
     ORCH --> CLS --> RAG
     CLS --> UI
@@ -295,7 +292,7 @@ Components:
   replace it without touching the engine.
 - **`ScreenScanner` + region selector (screen path)** — user-consented `screenshot.capture()` /
   `AVScreenCapture` → on-device OCR → text. Same pipeline downstream.
-- **`InAppSdkSource` (Phase 1)** — subscribes to the SDK event, `decodeReport`s
+- **`InAppSdkSource`** — subscribes to the SDK event, `decodeReport`s
   the payload, and emits a `ScanJob` to the engine.
 - **Orchestrator / ingestion** — `IngestSource` turns ingress into *scan jobs*;
   `TriggerEngine` applies the scan policy (unchanged-text skip, a short dedupe
@@ -303,15 +300,15 @@ Components:
   Per-app user toggles are designed but not yet built.
 - **Content normalization** — produces a normalized string (capped ≈2,000 chars)
   with source metadata (bundle, source, timestamp).
-- **Classifier** — `classifyText(text) → ScanResult` behind a model-agnostic
-  seam. **As built:** deterministic scam heuristics (`trigger/Classify.ts`).
-  **Target:** LAYA (converted to MindSpore Lite `.ms`) over the configured label
-  space → `{ category, verdict, confidence }`; the fallback classifier uses the
-  same seam.
-- **Retrieval (RAG)** — embeds the text with a bundled embedding model and
-  retrieves the closest scams/heuristics + remediation from the local KB.
-- **Escalation** — follows the KB "system triggers" (on-device LLM, then cloud
-  with consent).
+- **Classifier (as built)** — **LAY A** (fine-tuned, MindSpore Lite `.ms`) answers two
+  baked questions in one forward pass: a `deception` gate (the verdict) and an
+  `incident` choice over the KB ids (which case to show). See `vision/LayaClassifier`.
+  `trigger/Classify.ts` is a **legacy deterministic stub, exercised only by the
+  ohosTest suite; it is not used in production.**
+- **Retrieval (RAG) — not built.** The embedding model + cosine retrieval in §9 are
+  design only; the app ships a static incident KB and lets LAY A pick the case.
+- **Escalation — partially built.** The optional **DeepSeek "Describe"** action is the
+  only implemented escalation; the on-device-LLM → cloud-LLM chain (§9) is design.
 - **AlertService** — the `TriggerAlertSink` seam; the shipping implementation
   (`NotificationService`) posts the **local notification**. The overlay
   `UIAbility` is designed, not yet built.
@@ -321,9 +318,8 @@ Components:
 
 ```
 ingress (SDK report | screenshot-OCR) → debounce/dedupe
-      → gate by app toggle → normalize → LAYA classify → verdict?
-      → embedding retrieval → remediation → AlertService (local notification / overlay)
-      → optional log
+      → normalize → LAY A classify → verdict + incident id
+      → incident KB lookup → island card / Details (| optional DeepSeek "Describe")
 ```
 
 ---
@@ -356,7 +352,7 @@ interface TriggerAlertSink {
 }
 ```
 
-### 7.1 Phase 1 — In-app SDK (primary — implemented)
+### 7.1 In-app SDK trigger (demo path — implemented)
 
 The host app links `GuardianClient` (`@hackyeah/guardian_sdk`) and calls it
 whenever it **renders message text** (and optionally on a suspicious action):
@@ -380,7 +376,7 @@ are involved: the host only reports text it already owns.
 - Because the host is the source, this is the **highest-fidelity, fully-open**
   path and the one the demo/mock apps use.
 
-### 7.2 Screen capture → OCR (the real path)
+### 7.2 Screen capture → OCR (the as-built primary path)
 
 `vision/ScreenScanner` reads the screen **without target-app cooperation**:
 
@@ -418,11 +414,10 @@ when user-initiated.
 - **Privacy/energy budget**: designed additions are per-app gating and a
   cooldown; the max-scan rate + unchanged-skip are implemented.
 
-**Why SDK first.** For the hackathon it is the fastest, most accurate, and
-emulator-friendly path (no restricted permission, no OCR cost), and it proves the
-whole pipeline end-to-end. Its one drawback — it needs target-app cooperation — is
-removed by Phase 2 (OCR), and removed entirely by the system-access triggers in
-§16.
+**Why both paths exist.** The **screen-region scan** is the as-built primary: it
+reads other apps on the emulator without their cooperation. The **SDK path** is a
+higher-fidelity demo (the host hands over full message text) but needs a target app
+to integrate; the system-access triggers in §16 would remove even that.
 
 ---
 
@@ -442,16 +437,16 @@ removed by Phase 2 (OCR), and removed entirely by the system-access triggers in
   - `DANGEROUS`: suspicious or misleading, or CRITICAL category at lower
     confidence.
   - `SAFE`: below the alert threshold.
-- **Fallback classifier (risk mitigation):** because LAYA has no turnkey
-  HarmonyOS runtime or scam-specific head, the design also allows a
-  **fine-tuned small text classifier** (or embeddings + logistic regression) so
-  the product is not blocked if LAYA conversion/fine-tuning underperforms. The
-  interface is model-agnostic: `classify(text) → Verdict`.
-- **As built (Phase 1):** the classifier shipped today is a **deterministic
-  rules engine** (`trigger/Classify.ts`) over the same label space
-  (impersonation, urgency, unusual payment rails, isolation →
-  `SAFE`/`DANGEROUS`/`CRITICAL`). LAYA drops in behind the identical
-  `classifyText(text) → ScanResult` seam.
+- **As built:** the classifier shipped today is the **fine-tuned LAY A** model on
+  MindSpore Lite. It answers the `deception` gate and the `incident` choice in one
+  forward pass (deception ROC-AUC 0.930, gate 0.25; incident macro-F1 ≈ 0.33,
+  display-only). Model, data and calibration are in `AI_INTEGRATION.md` /
+  `DATA_SCIENCE.md`.
+- **No rules fallback.** There is deliberately no deterministic/heuristic fallback in
+  the product: a rule-based guess risks a false positive, which for a safety alert is
+  worse than showing nothing. If the `.ms` is missing or fails to load, the UI reports
+  that the on-device model is unavailable (`trigger/Classify.ts` is a legacy stub used
+  only by the ohosTest suite).
 
 ---
 
@@ -460,9 +455,9 @@ removed by Phase 2 (OCR), and removed entirely by the system-access triggers in
 **Purpose:** explain *what* is happening and *what to do*, grounded in curated
 knowledge, with an escape hatch when the KB is insufficient.
 
-> **Phase-1 resource:** the shipped incident knowledge base, its LAYA matching,
-> severity, and the **L0/L1/L2** message escalation are specified in **§18**. The
-> embedding model and RAG below are the longer-term retrieval layer.
+> **As built:** the shipped incident knowledge base + LAY A's `incident` choice
+> (§18). **The embedding model and RAG below are not built** — they are the
+> longer-term retrieval design, kept for context.
 
 - **KB corpus (curated, shipped offline):**
   - Scam patterns: authority/relative impersonation, urgency, isolation, unusual
@@ -470,11 +465,10 @@ knowledge, with an escape hatch when the KB is insufficient.
   - Misinformation heuristics: unverified claims, emotional manipulation,
     missing sourcing, known hoaxes.
   - **Remediation templates** per category (plain language, accessibility-first).
-- **Embedding model:** a small sentence embedder (e.g. `all-MiniLM-L6-v2` or
-  `BGE-small-en-v1.5`, ~384-dim) converted to **`.ms`** and run on-device. This
-  keeps the same code path on every device and avoids depending on system AI.
-- **Retrieval:** cosine similarity top-k over KB entries; the retrieved entry
-  supplies the explanation + suggested action.
+- **Embedding model (design, not built):** a small sentence embedder (e.g.
+  `all-MiniLM-L6-v2` or `BGE-small-en-v1.5`, ~384-dim) converted to **`.ms`** and run
+  on-device.
+- **Retrieval (design, not built):** cosine similarity top-k over KB entries.
 - **"System triggers" (escalation rules encoded alongside KB entries):**
   1. **KB hit above threshold** → answer from the KB (fast, deterministic,
      cacheable).
@@ -483,7 +477,7 @@ knowledge, with an escape hatch when the KB is insufficient.
   3. **Still unresolved and the user consents** → **cloud LLM** for that single
      incident, with redacted text.
 
-**Escalation chain:** `KB → on-device LLM → cloud LLM (explicit consent)`.
+**Escalation chain (design; only the DeepSeek step is built):** `KB → on-device LLM → cloud LLM (explicit consent)`.
 
 - **On-device LLM (device path):** a quantized small model (e.g. Qwen2.5
   0.5B–1.5B `.ms`) via the MindSpore Lite LLM module; NPU on device, CPU on the
@@ -500,7 +494,7 @@ as the `TriggerAlertSink` interface (`NotificationService` is the shipping sink)
 
 | Surface | Availability | Role |
 | --- | --- | --- |
-| **Local notification (+ vibration)** | HarmonyOS (third-party) | **Primary surface.** A detection (SDK in Phase 1, OCR in Phase 2) posts a notification; tapping opens the overlay. User must allow notifications. |
+| **Local notification (+ vibration)** | HarmonyOS (third-party) | **Primary surface.** A detection (screen scan, or an SDK report) posts a notification; tapping opens the overlay. User must allow notifications. |
 | **In-app overlay screen (`UIAbility`)** | HarmonyOS | Replays the flagged text **highlighted**, explains the scam/claim, and offers actions (*Call your child*, *See reliable sources*, *Dismiss*, *Report mis-detection*). |
 | **Smart Island / Live View adapter** | HarmonyOS device (HMS Live View Kit), unverified | Documented **stretch**. Same `AlertSurface`, so the pipeline is unchanged. |
 
@@ -510,7 +504,7 @@ worth distinguishing:
 - **Local notification (used):** the app composes and posts the alert itself via
   `@ohos.notificationManager.publish()` — on-device, offline, no server. This is
   what "SDK-driven notification" means: a **local** alert raised by our own
-  detection pipeline (which in Phase 1 is fed by the SDK).
+  detection pipeline (fed by the screen scan or an SDK report).
 - **Push Kit remote push (not used):** a backend → Huawei Push servers → device.
   It requires AGC + Push capability + a token and network, and cannot read local
   messages or other apps' notifications. It is not a trigger for Guardian; it is
@@ -519,8 +513,9 @@ worth distinguishing:
 **Accessibility of the alert:** large type, high contrast, plain-language summary,
 screen-reader labels, and a "read aloud" action — matching the primary persona.
 
-**Explainability:** every alert shows *signals* ("asks for urgent money", "unknown
-sender impersonating family", "unsourced emotional claim") rather than just a score.
+**Explainability:** every alert shows the matched incident's plain-language
+*explanation* and next steps from the KB, rather than just a score. (`signals` is a
+legacy field, empty on the as-built paths.)
 
 ---
 
@@ -592,8 +587,8 @@ The demo ships a **separate mock app** that integrates the SDK, so the cross-app
 - `com.example.huwaweichallenge` — the Guardian engine HAP: the camera-anchored
   Smart Island (region scan → OCR → LAY A → incident), the `InAppSdkSource`
   endpoint (subscribes to the SDK event), and the notification alert. **Built.**
-- `facebook-feed-mock/` — a standalone web feed (fake-news + a scam post) used to
-  demo the screen scan. **Built** (web, not an SDK app).
+- (The `facebook-feed-mock/` web feed used earlier to demo the screen scan was
+  **removed** from the repo.)
 
 **Script (screen scan, primary):** launch Guardian → tap **Guard** (the pill appears
 under the camera) → open any app (e.g. the mock chat) → tap the pill → **Select area**
@@ -610,7 +605,7 @@ background mechanism. The primary emulator demo is the **screen scan**
 (Select area → crop → OCR → LAY A → incident); the SDK path is covered by the
 unit + `ohosTest` suites.
 
-**Automated evidence:** unit **30/30**; hypium `ohosTest` **3/3** (last run).
+**Automated evidence:** unit **31/31**; hypium `ohosTest` **3/3** (last run).
 See §17 for the exact commands.
 
 **Screen scan, no cooperation:** the user selects a region and Guardian captures the
@@ -634,9 +629,9 @@ device/stretch paths.
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
 | **Coverage needs app adoption** — a third-party HarmonyOS app cannot auto-read other apps | High | Ship a clean SDK + docs; demo via mock apps; treat §16 system access as the north star |
-| LAYA has no turnkey HarmonyOS runtime; conversion/accuracy unproven | High | Model-agnostic `classify()`; fallback fine-tuned classifier / embeddings+LR; quantize for the emulator |
+| LAY A accuracy is domain-sensitive (trained on DIFrauD + synthetic UI; deployed on OCR'd screen text) | High | Head-only fine-tune + temperature/threshold calibration; honest limits in `DATA_SCIENCE.md`; deliberately no false-positive fallback |
 | LAYA size (~322–421M params, ~1.1–1.4 GB F16) on a 4 GB emulator | Medium | Q4/Q8 quantization or a smaller model for the emulator baseline |
-| **AVScreenCapture is not supported on the emulator** | High (Phase 2 demo) | Demo Phase 2 on a real device; keep the Phase 1 SDK demo for the emulator |
+| **Continuous `AVScreenCapture` is not supported on the emulator** | Medium | Not built; the one-shot `screenshot.capture()` region scan is the emulator path |
 | Background capture survival (continuous task may be killed / power-managed) | Medium | `KEEP_BACKGROUND_RUNNING` + `backgroundModes` + progress/heartbeat; test on a real device |
 | Screen capture permission from background / triggering over other apps | Medium | Request `CUSTOM_SCREEN_CAPTURE` from the foreground; use a persistent on-screen trigger or a notification action |
 | False positives erode trust | Medium | Tunable thresholds, clear explanations, dismiss/correct |
@@ -655,13 +650,13 @@ model and on-device LLM; the fine-tuning dataset for LAYA; cloud provider.
    mock chat reports a message via the SDK. *(feed app not built)*
 2. **M1 — Ingestion:** ✅ `IngestSource` interface; `InAppSdkSource` live;
    dedupe/budget (`ScanPolicy`). ☐ per-app gating, normalization.
-3. **M2 — Classification:** ◐ deterministic rules classifier shipped behind
-   `classifyText()`; ☐ LAYA `.ms` on CPU + verdict mapping.
-4. **M3 — KB + RAG:** embedding `.ms`, curated KB, retrieval, explanation.
+3. **M2 — Classification:** ✅ fine-tuned LAY A `.ms` on CPU (+ NNRt when present);
+   `deception` gate + `incident` choice behind `classify(text) → ScanResult`.
+4. **M3 — KB:** ✅ curated incident KB + explanation; ☐ embedding/RAG retrieval (not built).
 5. **M4 — UX:** SDK-driven local notification + overlay with highlighting and
    actions; accessibility polish.
 6. **M5 — Escalation:** on-device LLM path; consent-gated cloud path.
-7. **M6 — Demo & hardening (Phase 1):** SDK demo with mock apps, evidence
+7. **M6 — Demo & hardening:** mock-chat SDK demo, evidence
    capture, thresholds, docs, device/NPU and Live View stretch.
 8. **M7 — Screen scan (partly done):** `ScreenScanner` + region selector using
    `screenshot.capture()` → crop → on-device OCR → LAY A. **Built.** Continuous
@@ -695,7 +690,7 @@ screen / in the notification stream.
    `ohos.permission.SUBSCRIBE_NOTIFICATION`.
 
 Both plug into the existing engine as additional `IngestSource`s
-(`accessibility`, `notification`) — the classifier, KB/RAG, and alert UX are
+(`accessibility`, `notification`) — the classifier, KB and alert UX are
 unchanged.
 
 **How the tier is reached:**
@@ -712,12 +707,12 @@ unchanged.
 - **HarmonyOS (target platform):** the same first-level access exists but is
   reserved for **Huawei-signed system apps**; a third-party app cannot obtain it
   without Huawei system signing / approval. On HarmonyOS this section is therefore
-  **aspirational** and is the reason the third-party design is phased SDK-first
-  (Phase 1) then OCR (Phase 2).
+  **aspirational** and is why the third-party design uses screen-region OCR plus an
+  optional SDK path.
 
-**Relationship to the phased design.** One engine; the system build simply swaps
+**Relationship to the as-built design.** One engine; the system build simply swaps
 `InAppSdkSource` / `ScreenScanner` for `AccessibilitySource` +
-`NotificationSource`. The Phase 1/2 build is the honest, publishable subset;
+`NotificationSource`. The third-party build is the honest, publishable subset;
 system access is the full target.
 
 **Ethics/consent.** Even with system access, the accessibility service is
@@ -754,10 +749,10 @@ user-enabled and visible; Guardian remains advisory-only and on-device by defaul
 | LAYA classifier | `entry/src/main/ets/vision/LayaClassifier.ets` → `domain/usecase/AnalyseMessageUseCase.ets` |
 | Incident KB | `entry/src/main/ets/alert/IncidentKb.ets`, `resources/rawfile/kb/en/incidents.json` (§18) |
 | Theme | `entry/src/main/ets/alert/AlertTheme.ets` |
-| SDK ingestion | `entry/src/main/ets/sdk/InAppSdkSource.ets`, `trigger/TriggerEngine.ets`, `trigger/Classify.ts`, `trigger/ScanPolicy.ts`, `trigger/IngestSource.ts`, `trigger/TriggerTypes.ts` |
+| SDK ingestion | `entry/src/main/ets/sdk/InAppSdkSource.ets`, `trigger/TriggerEngine.ets`, `trigger/ScanPolicy.ts`, `trigger/IngestSource.ts`, `trigger/TriggerTypes.ts` (`trigger/Classify.ts` is a legacy stub, test-only) |
 | Alert sink | `entry/src/main/ets/alert/NotificationService.ets` |
 | Dev-only remote backend | `entry/src/main/ets/dev/` (`BackendSettings`, `BackendFactory`, `RemoteClient`), `vision/RemoteOcrEngine.ets`, `data/datasource/RemoteDecisionRepository.ets` |
-| Demos | `mocks/mockchat/` (SDK host); `facebook-feed-mock/` (web feed) |
+| Demos | `mocks/mockchat/` (SDK host app) |
 
 ### Wire format (SDK path)
 
@@ -770,7 +765,7 @@ user-enabled and visible; Guardian remains advisory-only and on-device by defaul
 
 | Suite | How to run | Result |
 | --- | --- | --- |
-| Unit (device-free, `node --test`) | `tsc -p tsconfig.tests.json && node --test ".test-build/tests/unit/*.test.js"` | **30/30 pass** |
+| Unit (device-free, `node --test`) | `tsc -p tsconfig.tests.json && node --test ".test-build/tests/unit/*.test.js"` | **31/31 pass** |
 | Integration (hypium `ohosTest`, on-device) | build + install the app & `ohosTest` HAP, then `aa test -b com.example.huwaweichallenge -m entry_test -s unittest OpenHarmonyTestRunner` | 3/3 (last run) |
 
 The test **code** lives in `tests/unit/*.test.ts` (+ `tsconfig.tests.json`) and
@@ -781,7 +776,7 @@ as `InAppSdkSource` does, and drives a real `TriggerEngine` with a fake alert si
 
 ### Dev environment & known limits
 
-- **Dev/CI:** HarmonyOS emulator (API 23/24) built with DevEco `hvigorw` (`hdc` to
+- **Dev/CI:** HarmonyOS emulator (API 24 dev image) built with DevEco `hvigorw` (`hdc` to
   install); the shipping target stays **HarmonyOS API 20+**.
 - **Emulator:** CPU-only (no NPU); LAYA inference is slow, hence the **dev-only remote
   backend** (a host server, selected by the in-app "Dev mode" switch).
@@ -810,7 +805,7 @@ entry/src/main/resources/rawfile/kb/en/incidents.json
   "locale": "en",
   "severityColors": { "CRITICAL": "#E84026", "WARNING": "#ED6F21", "INFO": "#0A59F7" },
   "prompts": { "localSystem": "…", "cloudSystem": "…" },
-  "incidents": [ /* 10 */ ]
+  "incidents": [ /* 8 */ ]
 }
 ```
 
@@ -824,9 +819,9 @@ entry/src/main/resources/rawfile/kb/en/incidents.json
 | `escalation` | `L0` \| `L1` \| `L2` — the highest message layer this case may use |
 | `cta` | label of the escalation button |
 | `title` | short heading (rendered large) |
-| `description` | one/two sentences — **part 1 of LAYA's label** |
-| `keywords` | screen phrases that trigger the case — **part 2 of LAYA's label** |
-| `signals` | deterministic pre-`classify` gate (`required` / `anyOf`) |
+| `description` | one/two sentences — the **LAY A option text** for this incident |
+| `keywords` | used only by the legacy `IncidentKb.forText` fallback (keyword match); not part of the model |
+| `signals` | **unused legacy field** (was a planned deterministic gate); not read by the app |
 | `explanation`, `remediation`, `actions`, `sources` | overlay content + model grounding |
 | `messages` | `level0` (always) plus `level1` and/or `level2` |
 
@@ -834,7 +829,7 @@ entry/src/main/resources/rawfile/kb/en/incidents.json
 (`safe`/`deceptive`, which decides the verdict) and an `incident` choice whose options
 are the incident ids (file order) with option text = the incident `description`. The
 matched case supplies `severity` (the alert colour), `messages`, and `remediation`.
-There is no vector store in Phase 1.
+There is no vector store.
 
 ### 18.3 Standard message + escalation
 
@@ -846,13 +841,16 @@ message carries the case's `cta`, and only a tap escalates.
 | Level | Field | Runs | When | Fallback |
 | --- | --- | --- | --- | --- |
 | **L0** | `messages.level0` | none | always (the floor) | — |
-| **L1** | `messages.level1` | on-device LLM | user taps `cta` | → L0 |
-| **L2** | `messages.level2` | cloud + retrieval | user taps `cta`, then consents | → L0 |
+| **L1** | `messages.level1` | on-device LLM (**not built**) | user taps `cta` | → L0 |
+| **L2** | `messages.level2` | cloud (as built: DeepSeek "Describe") | user taps `cta` | → L0 |
 
-- **L0 "What should I do?"** reveals the static `explanation` / `remediation` — no model.
-- **L1 "Explain this"** runs the local LLM (no consent, no network).
-- **L2 "Check this claim"** needs explicit consent and a **grounded** cloud lookup
-  that returns cited `sources` (never model memory); offline or declined → L0.
+- **L0 "What should I do?"** reveals the static `explanation` / `remediation` — no
+  model. **(as built.)**
+- **L1 "Explain this"** — design: runs a local LLM (no consent, no network). **Not built.**
+- **L2 "Check this claim"** — as built this is the optional **DeepSeek "Describe"**
+  action (bring-your-own key; see `AI_INTEGRATION.md` §4): it sends the selected text
+  plus the incident to DeepSeek for richer wording. The grounded-retrieval /
+  cited-sources design is **not built**.
 
 ### 18.4 The 8 incidents
 
@@ -874,7 +872,8 @@ the `description`); the chosen case supplies `severity` + `messages`.
 ### 18.5 Caveats
 
 - Misinformation is `WARNING` ("may be unreliable") and **never** asserts falsehood.
-- L2 sends only the claim text (§11) and caches results by claim hash.
+- The L2/DeepSeek action sends the selected text + the incident copy; there is no
+  claim-hash cache (that was the retrieval design).
 - The resource is validated by `tests/unit/kb-incidents.test.ts` (schema, enums,
   layer/level consistency).
 
@@ -911,7 +910,7 @@ misinformation dataset** and defining the label/decision format.
 
 - Shipping trigger + alert: our `GuardianClient` SDK; `@ohos.notificationManager`
   local notifications; `@ohos.screenshot` (`CUSTOM_SCREEN_CAPTURE` =
-  `normal`/`user_grant`) and AVScreenCapture (Phase 2).
+  `normal`/`user_grant`) and AVScreenCapture (not built).
 - Excluded for third-party HarmonyOS: `@ohos.application.AccessibilityExtensionAbility`
   (`@deprecated since 12`; `ACCESSIBILITY_EXTENSION_ABILITY` = `system_basic`),
   `@ohos.application.NotificationSubscriberExtensionAbility`

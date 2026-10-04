@@ -55,7 +55,7 @@ Because we use AI-assisted development tools, document **all** of the following:
 - **The main prompts, reusable instructions, and relevant configuration.**
   Include the prompts that materially shaped the output, plus any rules files,
   agent configs, skills, or MCP configuration. Paste them verbatim where
-  practical (see secret rules in §3/§5).
+  practical (see secret rules in §3/§4).
 - **The workflow** from ideation and architecture through implementation,
   testing, and debugging.
 - **How generated output was reviewed, tested, and validated** — who/how it was
@@ -109,48 +109,7 @@ feature's model, inference, data handling, limitations, validation and privacy.
 
 ---
 
-## 4. Update template (reference)
-
-The team's `AI_WORKFLOW.md` entries are **prepended** (newest first). This is the
-template:
-
-```markdown
----
-## Update: [YYYY-MM-DD HH:MM:SS]
-**Developer:** [git-username]
-
-#### 1. AI Features (skip if none were built this session)
-* **Model/Service:** ...
-* **Inference Flow:** ...
-* **Data Handling & Privacy:** ...
-* **Limitations & Validation:** ...
-
-#### 2. AI Development Tools Used
-* **Models & Agents:** ...
-* **MCP Servers & Skills:** ...
-* **Configuration:** ...
-
-#### 3. Development Workflow & Prompts
-* **Ideation & Architecture:** ...
-* **Implementation:** ...
-* **Key Prompts:** ...
-* **Testing & Debugging:** ...
-
-#### 4. Review & Validation
-* **Human Oversight:** ...
-* **Security Checks:** ...
-
-#### 5. Limitations & Lessons Learned
-* **Unsuccessful Approaches:** ...
-* **Lessons Learned:** ...
-```
-
-Skip any section that does not apply rather than leaving it blank. Keep entries
-honest, specific, and heavily compressed.
-
----
-
-## 5. Configuration & prompt hygiene
+## 4. Configuration & prompt hygiene
 
 - If a tool reads configuration (agent configs, `opencode.jsonc`, MCP config,
   skills), summarize **the relevant parts** rather than pasting large files.
@@ -162,21 +121,21 @@ honest, specific, and heavily compressed.
 
 ---
 
-## 6. Pre-flight checklist (run before finishing any task / PR)
+## 5. Pre-flight checklist (run before finishing any task / PR)
 
 - [ ] UI changes were validated on the emulator (screenshot/drive) and iterated
-      (see §12), or handed to the developer if requested.
+      (see §11), or handed to the developer if requested.
 - [ ] After changing the app, the new build was installed on the
-      emulator/device (see §13).
+      emulator/device (see §12).
 - [ ] If an AI feature is involved: model/service, inference flow, data
       handling, limitations, validation, and privacy are documented (see §2).
 - [ ] No secrets, credentials, or personal data were added anywhere.
 - [ ] Only task-relevant files were staged/committed — no editor/IDE configs,
-      generated output, large binaries, or unrelated prior work (see §8).
+      generated output, large binaries, or unrelated prior work (see §7).
 
 ---
 
-## 7. General working agreements
+## 6. General working agreements
 
 - **Prefer the platform.** Use real OpenHarmony/HarmonyOS capabilities
   (system services, APIs, distributed features, on-device AI, sensors,
@@ -192,7 +151,7 @@ honest, specific, and heavily compressed.
 
 ---
 
-## 8. Commit & staging hygiene — do not dump files
+## 7. Commit & staging hygiene — do not dump files
 
 Stage **only** the files that belong to the current task. Never sweep the whole
 working tree into a commit or PR.
@@ -209,7 +168,7 @@ working tree into a commit or PR.
   large media) unless the task explicitly requires shipping them — **ask
   first**.
 - **Secrets stay absolute**: never commit signing material or credentials
-  (`signatures/`, `*.p12`, `*.p7b`, `*.pem`, keys, tokens) — see §3 and §5.
+  (`signatures/`, `*.p12`, `*.p7b`, `*.pem`, keys, tokens) — see §3 and §4.
 - **Keep commits and PRs scoped.** A PR must contain the work for its stated
   purpose only. If earlier local commits were never pushed, do **not** silently
   publish them as part of an unrelated PR — surface them and ask.
@@ -217,7 +176,7 @@ working tree into a commit or PR.
 
 ---
 
-## 9. Feature, comment & script hygiene
+## 8. Feature, comment & script hygiene
 
 - **Test before you open a PR.** Every feature or fix must be built **and**
   exercised (automated where possible, plus a manual smoke check) and pass
@@ -234,7 +193,7 @@ working tree into a commit or PR.
 
 ---
 
-## 10. Pull requests — humans merge, agents do not
+## 9. Pull requests — humans merge, agents do not
 
 - Agents may create branches, commit, push, and open or update pull requests.
 - Agents must **never merge a PR** (nor close one) on their own. Opening a PR
@@ -245,7 +204,7 @@ working tree into a commit or PR.
 
 ---
 
-## 11. Dev-only backend — keep the remote and on-device paths in parity
+## 10. Dev-only backend — keep the remote and on-device paths in parity
 
 The app has a dev-only **"Dev mode"** switch that routes OCR and LAY A to a host
 server (`C:\guardian-devserver`, kept **outside** the repo). It exists only to
@@ -255,7 +214,7 @@ iterate quickly; the shipping product is on-device and offline.
   questions, and decision policy before any push/PR.** A change made only on the
   host (e.g. an edited LAY A question set or threshold) is **not "done"** until
   the on-device `.ms` is re-exported to match (`convert_laya.py`, kept out of the
-  repo per §9) and re-validated. The LAY A questions are **baked into the graph**,
+  repo per §8) and re-validated. The LAY A questions are **baked into the graph**,
   so any question change always requires a re-export.
 - **Never ship the remote path.** Remove `ohos.permission.INTERNET` and the
   remote/dev code before the submission build; the shipping app stays on-device
@@ -266,7 +225,7 @@ iterate quickly; the shipping product is on-device and offline.
 
 ---
 
-## 12. UI validation — the agent validates and iterates
+## 11. UI validation — the agent validates and iterates
 
 - The agent **may and should** validate visual/UI behaviour itself: build,
   install, drive the emulator, take screenshots, and iterate on visual issues
@@ -276,16 +235,16 @@ iterate quickly; the shipping product is on-device and offline.
 
 ---
 
-## 13. Always build & install after changing the app
+## 12. Always build & install after changing the app
 
 - After **any** change to the HarmonyOS app, build **and install** the HAP to the
   running emulator/device before handing back — the developer must always be
   testing the newest code.
 - Concretely: `hvigorw … assembleHap` (build from the canonical-cased project
-  path, see §12/lessons) then `hdc -t <target> install -r <hap>`; relaunch if
+  path, see §11/lessons) then `hdc -t <target> install -r <hap>`; relaunch if
   needed (`aa start -a <ability> -b <bundle>`).
-- Report the build and install result. Do **not** take screenshots or judge the
-  UI — that stays with the developer (§12).
+- Report the build and install result. Per §11, you may also validate the UI
+  (screenshots/drive) and iterate, unless the developer asked to own that check.
 
 ---
 
