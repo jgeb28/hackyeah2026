@@ -3,9 +3,8 @@
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
         "compileSdkVersion": "6.1.1(24)",
-        "compatibleSdkVersion": "6.1.0(23)",
+        "compatibleSdkVersion": "6.0.0(20)",
         "runtimeOS": "HarmonyOS",
         "targetSdkVersion": "6.1.1(24)"
       }
@@ -22,7 +21,7 @@
   "modules": [
     {
       "name": "guardian_sdk",
-      "srcPath": "../../HuwaweiChallenge/guardian_sdk",
+      "srcPath": "../../HuaweiChallenge/guardian_sdk",
       "targets": [
         {
           "name": "default",
