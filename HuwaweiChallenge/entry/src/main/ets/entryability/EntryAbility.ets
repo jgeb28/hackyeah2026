@@ -2,7 +2,6 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { notificationManager } from '@kit.NotificationKit';
 import { window } from '@kit.ArkUI';
-import { AlertOverlay } from '../alert/AlertOverlay';
 import { AlertTheme } from '../alert/AlertTheme';
 import { BackendSettings } from '../dev/BackendSettings';
 import { IncidentKb } from '../alert/IncidentKb';
@@ -25,7 +24,6 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     // Interception pipeline: observe SDK reports, classify, alert (overlay + notification).
-    AlertOverlay.setContext(this.context);
     AlertTheme.load(this.context);
     IncidentKb.load(this.context);
     IslandOverlay.setContext(this.context);

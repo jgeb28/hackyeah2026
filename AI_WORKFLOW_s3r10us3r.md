@@ -9,6 +9,208 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 04:48:57
+**Developer:** s3r10us3r
+
+**Task:** remove the registered-but-unreachable demo/prototype surfaces. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Deleted files:** `pages/OcrDemo.ets`, `pages/LayaDemo.ets`, `pages/TriggerDemo.ets`, `presentation/components/AnswerPopup.ets`, `entryability/DemoAbility.ets`, `accessibility/GuardianAccessibilityExtAbility.ets`, `resources/base/profile/accessibility_config.json`; removed the now-empty `presentation/` and `accessibility/` dirs.
+* **Config cleanup:** `main_pages.json` (dropped `pages/TriggerDemo|OcrDemo|LayaDemo`), `module.json5` (dropped `DemoAbility` + `GuardianAccessibilityExtAbility`), `string.json` (dropped `accessibility_description/label`, `demo_desc/label`). Fixed a stale `OcrDemo` comment in `vision/OcrEngine.ets`.
+* **Key Prompts:** "REMOVE."
+* **Testing & Debugging:** reference grep clean; `assembleHap` BUILD SUCCESSFUL; installed + relaunched.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Remaining:** `entrybackupability/EntryBackupAbility.ets` (standard template ability) kept intentionally.
+* **Stale docs:** `RUNNING.md` and parts of `DESIGN.md`/`LAYA_INTEGRATION.md` still mention the removed pages (OcrDemo/LayaDemo/TriggerDemo/ScreenClassifier) — docs update pending.
+
+---
+## Update: 2026-10-04 04:46:45
+**Developer:** s3r10us3r
+
+**Task:** dead-code sweep. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Method:** for every `entry/src/main/ets/**/*.ets|.ts` file, searched all sources for its basename to find unreferenced files; then manually verified config/JSON references.
+* **Removed (truly dead):** `components/DangerousMessagePopup.ets`, `components/DynamicIslandAlert.ets` (unused popups); `vision/ScreenClassifier.ets` (superseded length classifier); `trigger/ScreenOcrSource.ets` (unused Phase-2 seam); `AlertTheme.colorFor()` (unused after the popup removal).
+* **Key Prompts:** "Delete them. Generally check the code looking for uneeded/unused stuff."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL (no dangling refs); installed + relaunched.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to decide on the registered-but-unreachable demo surfaces below.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Still present — registered/compiled but not reachable from the app UI (candidates):** `pages/OcrDemo.ets`, `pages/LayaDemo.ets` (+ `presentation/components/AnswerPopup.ets`), `pages/TriggerDemo.ets` (+ `entryability/DemoAbility.ets`), and the §16 prototype `accessibility/GuardianAccessibilityExtAbility.ets`. `entrybackupability/EntryBackupAbility.ets` is the standard template ability (harmless).
+* **Stale docs:** `RUNNING.md` still describes the old floating-island design and references the deleted `ScreenClassifier`.
+* **Lessons Learned:** a basename substring scan over sources + a manual config check cleanly separates truly-dead files from registered demo surfaces.
+
+---
+## Update: 2026-10-04 04:45:56
+**Developer:** s3r10us3r
+
+**Task:** fine-tune completed; pick the best checkpoint by the held-out test set.
+
+#### 1. AI Features
+* **Model/Service:** LAY A 2-question schema, frozen-encoder head probe, 6 epochs,
+  40k train (36k/4k split).
+* **Inference Flow:** on-device/offline (export pipeline ready).
+* **Limitations & Validation:** the train-val split is **leaky** (val AUC 1.0 at
+  every epoch); the **external 100-case battery** shows the *final* model (0.970)
+  is **worse than epoch 0** (0.990) — template overfitting. Ranking all snapshots
+  on the **separate `test.jsonl`** (10k, leakage-free) to choose the checkpoint.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash` (+ data/fine-tune subagents).
+* **Configuration:** uv devserver; `rank_ckpts.py`, `eval_test.py`,
+  `export_laya.py`, `convert_wsl.sh`, `finalize_app.ps1` (all outside the repo).
+
+#### 3. Development Workflow & Prompts
+* **Key Prompts:** "We must have the final product in 6 hours" → "max 3 hours … I
+  will validate and test"; "I do not want to reboot … I will supply the .ms".
+* **Testing & Debugging:** watcher snapshots each epoch; corrected
+  `GuardianSchema.MAX_OPTIONS` to 3 (graph option width); prepared ONNX export +
+  WSL converter handoff; WSL present but unusable (no distro, virtualization off).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** never select the "best" LAY A checkpoint by the leaked val
+  split — the pipeline's default `best_model` overfits templates. Select on the
+  separate test set. Fine-tuning is done on this machine; the on-device `.ms`
+  export needs Linux (`converter_lite`) and will be provided out-of-band.
+
+---
+## Update: 2026-10-04 04:44:02
+**Developer:** s3r10us3r
+
+**Task:** remove the outdated popup shown in the message-mock (mockchat) flow. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Root cause:** `NotificationService.alert()` (the SDK/mockchat alert sink) also called `AlertOverlay.show(...)`, which raises the old floating popup (`pages/SentinelOverlay`) — the "outdated popup" seen when mockchat reports a message.
+* **Removed:** dropped the `AlertOverlay.show(...)` call and the now-unused `color` from `NotificationService`; removed the `AlertOverlay` import + `setContext` from `EntryAbility`; removed `pages/SentinelOverlay` from `main_pages.json`; deleted `alert/AlertOverlay.ets` and `pages/SentinelOverlay.ets`. The mockchat path now posts only the local notification.
+* **Key Prompts:** "remove the outdated popup from the message mock app."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL (no dangling refs); installed + relaunched.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to confirm no popup appears on a mockchat report.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Note:** two other unused demo components remain — `components/DangerousMessagePopup.ets` and `components/DynamicIslandAlert.ets` (both unreferenced). Offer to delete them too.
+* **Lessons Learned:** the old overlay lived in the notification sink, not the island; removing the sink's overlay call removed the popup without touching the new island.
+
+---
+## Update: 2026-10-04 04:37:32
+**Developer:** s3r10us3r
+
+**Task:** move the island to just below the camera. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** `IslandOverlay.computePlacement` now sets `topY = cutoutTop + cutoutHeight + 4vp` (was `cutoutTop − 10vp`), so the pill sits immediately under the camera cutout — which is also below the status bar, so taps register.
+* **Key Prompts:** "You know what. put it just under the camera. Nobody will care."
+* **Testing & Debugging (screenshots):** small shield pill renders just under the camera; tapping it expands (size changed). `assembleHap` BUILD SUCCESSFUL; installed.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** positioning below the cutout avoids both the camera-over-text issue and the status-bar touch interception — simplest of the placements.
+
+---
+## Update: 2026-10-04 04:35:24
+**Developer:** s3r10us3r
+
+**Task:** revert the wide pill to the smaller pill **with the emoji**, still up at the top. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Revert:** collapsed window `250×56 → 164×52` vp; `pill()` back to the simple `[icon] [title] [✕]` row (width 140 vp, icon restored); removed the camera-gap layout and the now-unused `cameraW()`/`camWvp` from `IslandOverlay`; restored `FloatingIsland` padding. Position stays top-anchored (`topY = cutoutTop − 10 vp`), x centred on the cutout.
+* **Key Prompts:** "Naaaah the emoji must stay. you know what. Let's go back to smaller slightly unclickable design. This won't be visible on the presentation."
+* **Testing & Debugging (screenshots):** small pill with shield + "Guardian" + ✕ at the top. `assembleHap` BUILD SUCCESSFUL; installed.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer confirmed the look is acceptable for the demo.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations (accepted):** the small pill sits over the status bar/cutout, so touching its centre may not register; the camera can sit behind the centred title (invisible on the emulator, developer accepts it for the presentation).
+* **Lessons Learned:** keep it simple — the wide camera-aware layout wasn't worth the trade-offs for a demo that won't show this surface closely.
+
+---
+## Update: 2026-10-04 04:23:22
+**Developer:** s3r10us3r
+
+**Task:** wider pill that keeps the camera clear of its text and has a usable tap area. **Not committed/pushed.**
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Wider pill:** collapsed window `164×52 → 250×56` vp; sized to sit between the system clock (ends ~x200) and the status icons (start ~x1087) so it doesn't cover them. `IslandOverlay` now exposes `cameraW()` (cutout width / density + 4).
+* **Camera never covers text:** the pill is a Row `[title (weighted, right-aligned)] [fixed gap = cameraW] [✕]` — equal weighted sides keep the gap centred on the cutout, so no glyph lands under the camera. Dropped the shield/stop icon from the *collapsed* pill (it ate the title space and truncated "Guardian"); the card still shows it.
+* **Tap area:** the pill is taller (56 vp) and starts at `cutoutTop − 10 vp`, so ~70 px of its width sits below the status bar and receives taps (the status-bar band does not).
+* **Key Prompts:** "Make it wider and make sure camera never blocks the pill text. It also looks like the top bar captures click events on the pill."
+* **Testing & Debugging (screenshots):** pill shows "Guardian" fully, left of the camera, ✕ right, clock/icons clear; tapping the lower edge expands to the card. `assembleHap` BUILD SUCCESSFUL; installed.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to validate.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the expanded card is wider (276 vp) and its header ✕ sits in the status-bar band over the icons (not ideal / possibly untappable); the card's "Close" button (below the bar) still works. The collapsed pill no longer shows the severity icon.
+* **Lessons Learned:** centred camera gap requires symmetric weighted groups; the status-bar band rejects touches, so any tappable control must extend below it.
+
+---
+## Update: 2026-10-04 04:14:53
+**Developer:** s3r10us3r
+
+**Task:** revert the capsule/card-below redesign; keep the previous pill/card design but move it up to the camera. **Not committed/pushed.**
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Revert:** `SmartIsland` back to the previous `pill()` (icon + title + ✕, collapsed) / `card()` (header + title + ✕ + detail + buttons, expanded) toggle; `IslandOverlay` sizes restored (pill 164×52 vp, card 276×288 vp) but positioned from the cutout: x centred on the camera, y = `cutoutTop - 6 vp` (≈24 px). Removed the `capsuleW/H` helpers and the `IslandOverlay` import from `SmartIsland`; restored `FloatingIsland` padding.
+* **Key Prompts:** "Noooo it does not expand. I like the previous design better so keep it but up the Y."
+* **Testing & Debugging (screenshots):** pill renders around the camera at the top; tapping its lower edge expands to the card. `assembleHap` BUILD SUCCESSFUL; installed.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to validate.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the system status-bar band does not deliver touches to our window — tapping the pill's upper half (over the status bar/cutout) does nothing; the **lower edge** of the pill (below the status bar) expands it. This is inherent to sitting at the top.
+* **Lessons Learned:** keeping the previous design avoids the camera-centred tap problem for the expanded card (card sits below the status bar), but the collapsed pill still needs a below-status-bar tappable area (enlarge its height if needed).
+
+---
+## Update: 2026-10-04 04:10:22
+**Developer:** s3r10us3r
+
+**Task:** turn the floating island into a real smart island **anchored around the camera cutout**. **Not committed/pushed (awaiting developer validation).**
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Feasibility proven:** the emulator has a camera cutout `{left:517, top:45, width:285, height:103}` (via `display.getCutoutInfo()`); a `TYPE_FLOAT` window sits happily in the top/status-bar band. `Window` has no `hide()`; `AvoidAreaType.TYPE_CUTOUT` exists but `getWindowAvoidArea` returned 1300002 here, so placement uses `getCutoutInfo()`.
+* **Implementation:**
+  - `IslandOverlay.ets`: `computePlacement()` reads the cutout → stores its centre-x and computes the capsule top-y; the window is positioned centred on the camera. Collapsed = capsule (140×46 vp); expanded = card (276×200 vp); detail mode unchanged. Added `capsuleW()/capsuleH()`.
+  - `SmartIsland.ets`: the pill became a **capsule** (icon left, ✕ right, camera in the middle) with the **card dropping below** it when expanded; the card lost its duplicate header icon/✕. Tapping the capsule toggles expand.
+  - `FloatingIsland.ets`: dropped padding so the capsule aligns to the window top. Removed the temporary cutout probe from `EntryAbility`.
+* **Key Prompts:** "A smart island … is around the camera … Can we do it?"; "It is certainly better. Let's do it".
+* **Testing & Debugging (screenshots):** capsule renders around the camera at the top (`x=415 y=16`) with clock/icons intact on the sides; tapping expands and the card drops below. `assembleHap` BUILD SUCCESSFUL; installed.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to validate the look/feel.
+* **Security Checks:** no new permissions.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the physical cutout rectangle and the system status-bar band are not touch-sensitive to our window — tapping dead-centre on the camera does nothing; the **sides (icon/✕) and just-below** the cutout are tappable. The collapsed capsule no longer shows the title (no room beside the centred camera); the title appears on expand.
+* **Lessons Learned:** a third-party `TYPE_FLOAT` window can occupy the status-bar/cutout band on this platform; size/placement can be derived from `getCutoutInfo()`.
+
+---
 ## Update: 2026-10-04 03:58:37
 **Developer:** s3r10us3r
 

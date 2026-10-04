@@ -3,7 +3,6 @@ import { notificationManager } from '@kit.NotificationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { ScanResult, TriggerSource } from '../trigger/TriggerTypes';
 import { TriggerAlertSink } from '../trigger/IngestSource';
-import { AlertOverlay } from './AlertOverlay';
 import { AlertTheme } from './AlertTheme';
 
 const DOMAIN: number = 0x0A11;
@@ -29,16 +28,8 @@ export class NotificationService implements TriggerAlertSink {
     const title: string = result.severity !== undefined
       ? AlertTheme.titleForCategory(result.category)
       : AlertTheme.titleFor(result.verdict);
-    const color: string = result.severity !== undefined
-      ? AlertTheme.colorForSeverity(result.severity)
-      : AlertTheme.colorFor(result.verdict);
     const body: string = sourceText.length > 140 ? `${sourceText.substring(0, 140)}\u2026` : sourceText;
     const signals: string = result.signals.length > 0 ? result.signals.join(' \u00B7 ') : 'Guardian';
-
-    // Primary alert: our floating overlay on top of other apps (works in background).
-    AlertOverlay.show(title, body, color).catch((e: Error) => {
-      hilog.warn(DOMAIN, TAG, `overlay failed: ${e.message}`);
-    });
 
     const request: notificationManager.NotificationRequest = {
       id: this.nextId++,

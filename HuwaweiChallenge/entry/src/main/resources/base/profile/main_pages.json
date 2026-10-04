@@ -1,12 +1,8 @@
 {
   "src": [
     "pages/Index",
-    "pages/TriggerDemo",
-    "pages/SentinelOverlay",
     "pages/FloatingIsland",
-    "pages/OcrDemo",
     "pages/IncidentDetail",
-    "pages/LayaDemo",
     "pages/SelectArea"
   ]
 }

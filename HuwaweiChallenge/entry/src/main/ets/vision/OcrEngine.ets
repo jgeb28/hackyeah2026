@@ -1,5 +1,4 @@
-// OCR seam for the on-screen scanner. Runs the on-device PP-OCRv4 engine
-// (ets/ocr/) so the screenshot path recognises text with the same model as OcrDemo.
+// OCR seam for the on-screen scanner. Runs the on-device PP-OCRv4 engine (ets/ocr/).
 import { image } from '@kit.ImageKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { common } from '@kit.AbilityKit';
