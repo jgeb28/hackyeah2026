@@ -26,6 +26,9 @@ tools/laya/tokenizer_check.py
 tools/laya/try_laya.py
 tools/laya/validate_ms.py
 
+# --- Local demo assets (kept on disk, not committed) ---
+facebook-feed-mock/
+
 # --- Dependency lock files (regenerated locally; not committed) ---
 **/oh-package-lock.json5
 

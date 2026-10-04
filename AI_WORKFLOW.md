@@ -12,6 +12,16 @@ privacy) is a separate concern and is documented in
 [`AI_INTEGRATION.md`](./AI_INTEGRATION.md).
 
 ---
+## Update: 2026-10-04 14:45:00
+**Developer:** s3r10us3r
+
+**Task:** remove the `facebook-feed-mock` demo from the repo (kept outside for the demo).
+
+* **Removed** `facebook-feed-mock/` from tracking. A working copy now lives **outside** the repo at `C:\guardian-demo\facebook-feed-mock` and is served on `:9000` for the screen-scan demo.
+* **Docs/config:** dropped the layout row from `README.md`; added the path to `.gitignore`.
+* **Key Prompts:** "Remove the facebook-feed-mock from the repo."; "keep the facebook-feed-mock outside the repo so i can use it for demo."
+
+---
 ## Update: 2026-10-04 08:23:05
 **Developer:** s3r10us3r
 
