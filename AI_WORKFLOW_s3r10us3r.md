@@ -9,6 +9,29 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 03:29:30
+**Developer:** s3r10us3r
+
+**Task:** coloured collapsed pill by severity; open a PR with the current app state.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none. `gh` 2.102.0 (authenticated as `s3r10us3r`).
+
+#### 3. Development Workflow & Prompts
+* **Pill:** `SmartIsland.minimize()` now only cancels an in-flight scan; otherwise it collapses **keeping the result**, so the pill uses the result colour and title (`isResult()` helper). `Close` collapses to a coloured pill; only the small **✕** (destroys the window) returns to neutral — reverses the earlier "Close resets to neutral".
+* **PR:** branch `feat/guardian-island-details-feed-mock`; committed the full current state (Guardian UI/Details/KB matching, dev remote backend, OCR chrome filtering, mockchat config, `facebook-feed-mock/`); pushed; opened **PR #19** (https://github.com/jgeb28/hackyeah2026/pull/19) — not merged (AGENTS §10). Added `__pycache__/`/`*.pyc` to `.gitignore`; secret-scanned the diff (clean).
+* **Key Prompts:** "Coloured pill 100%. Also create the PR with the current app state then".
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed; validated via screenshot — scanned the mock's parcel post, tapped **Close** → **orange pill "Possible…"**. PR body notes the dev-only backend must be removed before shipping.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review/merge PR #19.
+* **Security Checks:** no secrets in the diff; signing material and caches stay git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** `gh` needs `git` on PATH on this host; the branch now carries a broad "current state" commit (per the request) including the dev-only remote backend.
+
+---
 ## Update: 2026-10-04 03:25:22
 **Developer:** s3r10us3r
 
