@@ -28,7 +28,6 @@ key is never shipped (see *Optional cloud*).
 | --- | --- |
 | `HuwaweiChallenge/` | Guardian app (`entry/`) + `guardian_sdk/` HAR |
 | `mocks/mockchat/` | WeChat-like host app that reports messages via the SDK |
-| `facebook-feed-mock/` | static web feed used to demo the screen scan |
 | `tests/unit/` | device-free unit tests (`node --test`) |
 | `DESIGN.md`, `RUNNING.md`, `AI_INTEGRATION.md` | architecture, run guide, AI/model contract |
 | `AGENTS.md`, `AI_WORKFLOW.md`, `DATA_SCIENCE.md` | agent rules, AI workflow log, model data science |
