@@ -209,6 +209,10 @@ honest, specific, and heavily compressed.
 - [ ] The ideation → architecture → implementation → testing → debugging
       workflow is captured.
 - [ ] Generated output review, tests, and validation evidence are described.
+- [ ] UI changes were validated on the emulator (screenshot/drive) and iterated
+      (see §12), or handed to the developer if requested.
+- [ ] After changing the app, the new build was installed on the
+      emulator/device (see §13).
 - [ ] Known limitations, unsuccessful approaches, and lessons learned are
       included.
 - [ ] If an AI feature is involved: model/service, inference flow, data
@@ -287,6 +291,52 @@ working tree into a commit or PR.
 - Do **not** push directly to `main` (or any protected branch) unless the human
   explicitly instructs it for that specific change.
 - After opening a PR, stop and report the PR link plus what was built/tested.
+
+---
+
+## 11. Dev-only backend — keep the remote and on-device paths in parity
+
+The app has a dev-only **"Dev mode"** switch that routes OCR and LAY A to a host
+server (`C:\guardian-devserver`, kept **outside** the repo). It exists only to
+iterate quickly; the shipping product is on-device and offline.
+
+- **The remote path and the on-device path must implement the same model schema,
+  questions, and decision policy before any push/PR.** A change made only on the
+  host (e.g. an edited LAY A question set or threshold) is **not "done"** until
+  the on-device `.ms` is re-exported to match (`tools/laya/convert_laya.py`) and
+  re-validated. The LAY A questions are **baked into the graph**, so any question
+  change always requires a re-export.
+- **Never ship the remote path.** Remove `ohos.permission.INTERNET` and the
+  remote/dev code before the submission build; the shipping app stays on-device
+  and offline.
+- **Record parity status.** Note any schema/policy change and whether the
+  on-device model has been re-exported in `AI_WORKFLOW_<git-username>.md` while
+  the two paths are temporarily out of parity.
+
+---
+
+## 12. UI validation — the agent validates and iterates
+
+- The agent **may and should** validate visual/UI behaviour itself: build,
+  install, drive the emulator, take screenshots, and iterate on visual issues
+  until they look right — unless the developer asks to own a specific check.
+- Code-level checks (build/compile, unit tests, lint) are still expected and must
+  be reported.
+
+---
+
+## 13. Always build & install after changing the app
+
+- After **any** change to the HarmonyOS app, build **and install** the HAP to the
+  running emulator/device before handing back — the developer must always be
+  testing the newest code.
+- Concretely: `hvigorw … assembleHap` (build from the canonical-cased project
+  path, see §12/lessons) then `hdc -t <target> install -r <hap>`; relaunch if
+  needed (`aa start -a <ability> -b <bundle>`).
+- Report the build and install result. Do **not** take screenshots or judge the
+  UI — that stays with the developer (§12).
+
+---
 
 _If any instruction here conflicts with the official challenge rules, the
 challenge rules win — update this file to match them._

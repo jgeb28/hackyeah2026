@@ -2,15 +2,19 @@
 import { common } from '@kit.AbilityKit';
 import { MessageAnalysis, Verdict as LayaVerdict } from '../domain/model/Decision';
 import { AppContainer } from '../di/AppContainer';
+import { BackendSettings } from '../dev/BackendSettings';
 import { ScanResult, Verdict } from '../trigger/TriggerTypes';
 
 export class LayaClassifier {
   private container: AppContainer | null = null;
+  private mode: string = '';
 
   private ensure(): AppContainer {
-    if (this.container === null) {
+    const mode: string = BackendSettings.mode;
+    if (this.container === null || this.mode !== mode) {
       const ctx: common.UIAbilityContext = getContext() as common.UIAbilityContext;
       this.container = new AppContainer(ctx);
+      this.mode = mode;
     }
     return this.container;
   }

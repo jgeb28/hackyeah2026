@@ -7,17 +7,21 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 const DOMAIN: number = 0x0A11;
 const TAG: string = 'GuardianIslandWin';
 const WIN_NAME: string = 'guardian_island_overlay';
-const WIN_XL_VP: number = 300;
-const WIN_XS_W_VP: number = 180;
-const WIN_XS_H_VP: number = 56;
-const WIN_XL_H_VP: number = 320;
+const WIN_XL_VP: number = 276;
+const WIN_XS_W_VP: number = 164;
+const WIN_XS_H_VP: number = 52;
+const WIN_XL_H_VP: number = 288;
 const WIN_Y_VP: number = 40;
+const WIN_DETAIL_W_VP: number = 320;
+const WIN_DETAIL_H_VP: number = 560;
+const WIN_DETAIL_Y_VP: number = 80;
 const BUNDLE: string = 'com.example.huwaweichallenge';
 
 export class IslandOverlay {
   private static win: window.Window | null = null;
   private static ctx: common.UIAbilityContext | undefined = undefined;
   private static bgStarted: boolean = false;
+  private static detailMode: boolean = false;
 
   static setContext(context: common.UIAbilityContext): void {
     IslandOverlay.ctx = context;
@@ -25,6 +29,19 @@ export class IslandOverlay {
 
   static isShown(): boolean {
     return IslandOverlay.win !== null;
+  }
+
+  /** Current floating-window rect in px, or null when the island is not shown. */
+  static rectPx(): window.Rect | null {
+    const win: window.Window | null = IslandOverlay.win;
+    if (win === null) {
+      return null;
+    }
+    try {
+      return win.getWindowProperties().windowRect;
+    } catch (err) {
+      return null;
+    }
   }
 
   /** Show (or re-show) the floating island. Returns false when not permitted. */
@@ -79,12 +96,38 @@ export class IslandOverlay {
     });
   }
 
+  /** Grow the window to host the incident detail page, or shrink back to the island. */
+  static setDetailMode(on: boolean): void {
+    if (IslandOverlay.detailMode === on) {
+      return;
+    }
+    IslandOverlay.detailMode = on;
+    const win: window.Window | null = IslandOverlay.win;
+    if (win === null) {
+      return;
+    }
+    const d: display.Display = display.getDefaultDisplaySync();
+    const maxW: number = d.width / d.densityPixels;
+    const maxH: number = d.height / d.densityPixels;
+    const wVp: number = on ? Math.min(WIN_DETAIL_W_VP, maxW - 16) : WIN_XL_VP;
+    const hVp: number = on ? Math.min(WIN_DETAIL_H_VP, maxH - 140) : WIN_XL_H_VP;
+    const yVp: number = on ? WIN_DETAIL_Y_VP : WIN_Y_VP;
+    const w: number = IslandOverlay.dp(wVp);
+    const h: number = IslandOverlay.dp(hVp);
+    win.resize(w, h).then(() => {
+      return win.moveWindowTo(IslandOverlay.centerX(w), IslandOverlay.dp(yVp));
+    }).catch((err: Error) => {
+      hilog.warn(DOMAIN, TAG, 'detail resize failed: %{public}s', err.message);
+    });
+  }
+
   static close(): void {
     const win: window.Window | null = IslandOverlay.win;
     if (win === null) {
       return;
     }
     IslandOverlay.win = null;
+    IslandOverlay.detailMode = false;
     win.destroyWindow().catch((err: Error) => {
       hilog.warn(DOMAIN, TAG, 'destroy failed: %{public}s', err.message);
     });

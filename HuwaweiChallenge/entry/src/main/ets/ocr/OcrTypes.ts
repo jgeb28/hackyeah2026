@@ -29,3 +29,11 @@ export interface DetRect {
   /** Radians, rotation of the rectangle. */
   angle: number;
 }
+
+/** A rectangle in source-image pixels, used to exclude system/app chrome regions. */
+export interface RectPx {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}

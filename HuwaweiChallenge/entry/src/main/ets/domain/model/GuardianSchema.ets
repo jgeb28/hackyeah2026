@@ -5,57 +5,56 @@ import { QuestionType } from './Decision';
  *   - `AnalyseMessageUseCase`   (builds the Laya questions)
  *   - `MindSporeLiteEngine`     (decodes the on-device graph output)
  *
- * The on-device `.ms` graph is exported with exactly this question order and
- * option layout, so the two sides can never drift. `MAX_OPTIONS` is the padding
- * width of the graph's probability output.
+ * The text is treated as **any on-screen content**, not necessarily a message.
+ * Two questions only:
+ *   1. `deception` — a binary gate: is the text trying to deceive the reader?
+ *   2. `category`  — if it is, which kind of deceptive content is it?
+ *
+ * NOTE: the number/order/labels are baked into the on-device `.ms` by
+ * `tools/laya/convert_laya.py`. Changing this file requires re-exporting the
+ * on-device model before a push (see root AGENTS.md "dev remote parity" rule).
  */
 export interface SchemaQuestion {
   key: string;
   kind: string;
   instructions: string;
-  /** Option labels in scoring order. `noul` is always ['false', 'true']. */
+  /** Option labels in scoring order. */
   labels: string[];
   /** Optional human descriptions for `choice` options (parallel to labels). */
   descriptions: string[];
 }
 
 export class GuardianSchema {
-  static readonly RISK: SchemaQuestion = {
-    key: 'risk',
-    kind: QuestionType.NOUL,
-    instructions: 'Does this message try to obtain money, credentials or personal ' +
-      'data, or pressure the reader into an unsafe action?',
-    labels: ['false', 'true'],
-    descriptions: []
-  };
-
-  static readonly CATEGORY: SchemaQuestion = {
-    key: 'category',
+  /** Primary gate: is this text trying to deceive the reader? (choice) */
+  static readonly DECEPTION: SchemaQuestion = {
+    key: 'deception',
     kind: QuestionType.CHOICE,
-    instructions: 'What kind of message is this?',
-    labels: ['scam', 'misinformation', 'harassment', 'marketing', 'legitimate'],
+    instructions: 'Does this text try to deceive the reader — for example by impersonating ' +
+      'someone, inventing urgency or a threat, or asking for money, credentials or personal data?',
+    labels: ['safe', 'deceptive'],
     descriptions: [
-      'fraud, phishing, or a request for money/credentials',
-      'a false or unverified alarming claim',
-      'abuse, threats or coercion',
-      'an advertisement or promotion',
-      'a normal personal or business message'
+      'the text is not trying to deceive the reader',
+      'the text tries to deceive the reader'
     ]
   };
 
-  static readonly URGENCY: SchemaQuestion = {
-    key: 'urgency',
-    kind: QuestionType.SCORE,
-    instructions: 'How much time pressure does the message apply?',
-    labels: ['none', 'some pressure', 'critical deadline or threat'],
-    descriptions: []
+  /** Which kind of deceptive text it is (only meaningful when DECEPTION = deceptive). */
+  static readonly CATEGORY: SchemaQuestion = {
+    key: 'category',
+    kind: QuestionType.CHOICE,
+    instructions: 'What kind of deceptive text is this?',
+    labels: ['scam', 'misinformation', 'harassment'],
+    descriptions: [
+      'fraud, phishing, or a request for money or credentials',
+      'a false or unverified alarming claim meant to mislead',
+      'abuse, threats or coercion'
+    ]
   };
 
   /** Order is part of the model contract — do not reorder without re-exporting. */
   static readonly QUESTIONS: SchemaQuestion[] = [
-    GuardianSchema.RISK,
-    GuardianSchema.CATEGORY,
-    GuardianSchema.URGENCY
+    GuardianSchema.DECEPTION,
+    GuardianSchema.CATEGORY
   ];
 
   /** Width of the padded option axis in the on-device graph output. */

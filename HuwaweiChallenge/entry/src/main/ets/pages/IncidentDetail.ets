@@ -1,7 +1,6 @@
 // IncidentDetail — normal app screen that hosts IncidentDetailView.
 // Hardcoded single incident for testing. The route `json` param (the LAYA seam)
 // overrides it with a supplied incident JSON when present.
-import { router } from '@kit.ArkUI';
 import { IncidentDetailView } from '../components/IncidentDetailView';
 
 interface DetailParams {
@@ -30,7 +29,7 @@ struct IncidentDetail {
   @State json: string = INCIDENT_JSON;
 
   aboutToAppear(): void {
-    const params: DetailParams = router.getParams() as DetailParams;
+    const params: DetailParams = this.getUIContext().getRouter().getParams() as DetailParams;
     if (params !== undefined && params !== null && typeof params.json === 'string' && params.json.length > 0) {
       this.json = params.json;
     }
@@ -43,7 +42,7 @@ struct IncidentDetail {
           .fontSize(16)
           .fontColor('#0A59F7')
           .onClick(() => {
-            router.back();
+            this.getUIContext().getRouter().back();
           })
         Blank()
       }
@@ -55,5 +54,8 @@ struct IncidentDetail {
     .width('100%')
     .height('100%')
     .backgroundColor('#F1F3F5')
+    .borderRadius(18)
+    .clip(true)
+    .border({ width: 1, color: '#2A2F3A' })
   }
 }

@@ -9,6 +9,924 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 03:25:22
+**Developer:** s3r10us3r
+
+**Task:** agent now self-validates UI; shrink the floating island and validate the whole scan→Details flow on the Facebook mock.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none. Emulator driven via `uitest uiInput`, screenshots via `snapshot_display`, layout via `uitest dumpLayout`.
+
+#### 3. Development Workflow & Prompts
+* **Rule change:** `AGENTS.md` §12 reversed — the agent **may and should** validate UI itself (build, install, drive emulator, screenshots, iterate); checklist item updated. §13 (always build & install) kept.
+* **UI iteration (validated visually, not blindly):**
+  - Shrank `SmartIsland`: pill 156→140 vp, smaller fonts/padding; **removed the `.shadow()`** (it was clipped by the window bounds → the edge "artifacts"); kept the border rim.
+  - `IslandOverlay` window sizes: XS 164×52, XL 276×288, detail **320×560** (was near-full-screen 360×720).
+  - Scam card colour now comes from the **incident severity** (DESIGN §18), so the parcel scam shows **orange WARNING** instead of red.
+* **Key Prompts:** "maybe make it a little smaller. Now you can validate the UI on your own and iterate on it."
+* **Testing & Debugging (screenshots):** pill + expanded card clean; opened the mock in the emulator browser, tapped Screenshot → **"Possible parcel scam"** orange card → **Details** → incident page (WARNING chip, What this is / Why it matters / What to do). `assembleHap` BUILD SUCCESSFUL; installed + relaunched each iteration.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer granted self-validation; screenshots captured for pill/card/detail.
+* **Security Checks:** UI-only; no permissions/secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** the edge artifacts were the window-sized `.shadow()` being clipped — removing it (border instead) fixed it; the emulator start window appears ~2 s before content, so screenshot after a delay. Driving `uitest uiInput click` with coordinates from `uitest dumpLayout` works well.
+
+---
+## Update: 2026-10-04 03:19:02
+**Developer:** s3r10us3r
+
+**Task:** clean up edge artifacts on the floating-window UI with a border.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** added a thin rim — `SmartIsland` pill (`1px #3A4250`) and expanded card (`1px #40FFFFFF`), and `IncidentDetail` root (`1px #2A2F3A` + `borderRadius(18)` + `clip(true)`) — so the rounded/transparent floating window has a defined edge instead of a clipped-shadow fringe.
+* **Key Prompts:** "the UI leaves weird artifacts around the edges, we should prob make a border."
+* **Testing & Debugging:** `hvigorw assembleHap` → **BUILD SUCCESSFUL**; installed and relaunched.
+
+#### 4. Review & Validation
+* **Human Oversight / handoff:** developer to verify the edges look clean on the island (pill + expanded card) and the incident-detail page.
+* **Security Checks:** UI-only; no permissions/secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** guessed the target surfaces (island + detail page); border colour/target may need tuning. The likely root cause is the window being sized to the content so the card's `.shadow()` is clipped at the window edge — a border hides it, but insetting the content or dropping the shadow might be cleaner.
+
+---
+## Update: 2026-10-04 03:18:15
+**Developer:** s3r10us3r
+
+**Task:** validate OCR text-hygiene locally, then implement the non-costly chrome
+filtering (geometry + box exclusion) in the app.
+
+#### 3. Development Workflow & Prompts
+* **Validation first (local, outside repo):** `C:\guardian-devserver\strip_eval.py`
+  ran the **stock** model on CPU (no GPU contention) over 14 mixed
+  status-bar+island+content samples (`clean`/`mixed`/`stripped`). **Result:
+  text-level chrome stripping is NOT reliably beneficial** — chrome sometimes
+  raised and sometimes lowered P(deceptive); at t=0.34 the stripper even added a
+  false positive (safe 1/8 → 2/8). The base model is unstable; the fix is
+  calibration/fine-tune, not preprocessing.
+* **Implemented (deterministic, latency-positive):** exclude OCR boxes inside the
+  **status bar**, **nav bar**, and our **own island window**:
+  * `ocr/OcrTypes.ts` — `RectPx`; `ocr/OcrEngine.ets` — `extract(pixelMap,
+    excludedRects)` + `filterExcluded`; logs `detect N boxes (M chrome-excluded)`.
+  * `vision/OcrEngine.ets` / `vision/RemoteOcrEngine.ets` — seam carries
+    `excludedRects`; `vision/ScreenScanner.ets` — `chromeRects()` from
+    `window.getWindowAvoidArea(TYPE_SYSTEM)` + `IslandOverlay.rectPx()`;
+    `alert/IslandOverlay.ets` — `rectPx()`.
+  * Skipped per-block re-classification (costly on-device).
+* **Note:** three decision paths — island (LAY A), SDK report (host-reported
+  category), accessibility/demo (rules `Classify.ts`); LAY A is the island path.
+* **Testing & Debugging:** `assembleHap` → **BUILD SUCCESSFUL**; `hdc install -r` →
+  `install bundle successfully`; relaunched. Per **AGENTS §12**, no screenshots /
+  visual self-validation; runtime box-count/latency observation is the developer's.
+* **Key Prompts:** "Will it cost us latency?"; "do all the non-costly things …
+  first take samples with mixed ui/content and validate locally"; "Do that".
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** text-level chrome stripping (measured, not
+  beneficial on the stock model); per-block classification (latency cost).
+* **Lessons Learned:** validate locally before touching the app; geometry
+  exclusion is deterministic and *reduces* OCR work. Re-run `strip_eval.py`
+  against the **fine-tuned** model once training completes.
+
+---
+## Update: 2026-10-04 03:12:42
+**Developer:** s3r10us3r
+
+**Task:** put a **different, lower-severity** scam in the Facebook mock (not the family-emergency scam) and make Guardian show the matching incident.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash); host LAY A `RLAgent` (devserver venv, CUDA) for score checks.
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Model calibration (host):** parcel/delivery smishing wordings scored `P(deceptive)`: 0.14–0.29 (miss), but `"URGENT: Your parcel could not be delivered. To reschedule, pay the small redelivery fee and confirm your details within 24 hours: <link>"` → **0.312** (≥ 0.30 gate → DANGEROUS) with `category=scam 0.94`. So a parcel scam lands as **WARNING**, not CRITICAL.
+* **Implementation:**
+  - `facebook-feed-mock/app.js`: replaced the Bank Security post with a **Parcel Express** delivery-fee scam (the 0.312 wording).
+  - `IncidentKb.ets`: added `keywords` to the `Incident` interface and a `forText(text, category)` that picks the in-category incident whose **keywords appear most** in the scanned text, falling back to the most severe. `SmartIsland` now uses `forText(outcome.text, category)`, so a parcel scam shows the WARNING `delivery-fee-smishing` incident instead of the CRITICAL family scam.
+* **Key Prompts:** "I explicitly want something with lower severity than the family member scam and something different than the family member scam."
+* **Testing & Debugging:** `node --check app.js` OK; `hvigorw assembleHap` → **BUILD SUCCESSFUL**; installed (`install bundle successfully`) and launched; emulator browser reopened to the mock (`hdc rport tcp:8080`, host `:8080`).
+
+#### 4. Review & Validation
+* **Human Oversight / handoff:** developer to reload the mock in the emulator browser, scroll to the Parcel Express post, and scan; expect an orange **WARNING** "Possible parcel scam" with parcel next steps.
+* **Security Checks:** no secrets; devserver forwards only (8080 mock, 9100 inference); no new permissions.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the parcel score (0.312) is just over the 0.30 gate — OCR reading extra on-screen text could dilute it below and show "Looks safe". Keyword matching is a heuristic (not model-driven) and only disambiguates within a category.
+* **Lessons Learned:** the model's deception head under-scores non-impersonation scams; pairing it with the confident `category` head (or a lower, category-aware gate) would be more robust.
+
+---
+## Update: 2026-10-04 03:08:07
+**Developer:** s3r10us3r
+
+**Task:** fix "Details did nothing" — render the incident page inside the floating window (background ability start is blocked).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Diagnosis (logs):** `AMS: checkCallPermission error, result:2097177` → `StartAbilityByFreeInstall error:2097177` → app `GuardianIsland: open details failed: {"code":201}`. Guardian is **backgrounded** while its TYPE_FLOAT island sits over another app, and HarmonyOS **forbids starting an ability from the background** without `ohos.permission.START_ABILITIES_FROM_BACKGROUND` (`system_basic`). So the `Want`/`startAbility` route to the main window can't work.
+* **Fix (new approach):** render the detail **inside the floating window**. `FloatingIsland` now `getUIContext().getRouter().pushUrl('pages/IncidentDetail', {json})` (no ability start) and calls `IslandOverlay.setDetailMode(true)` to enlarge the window; `onPageShow` shrinks it back; `IncidentDetail` reads params/back via the UIContext router. Reverted the `EntryAbility` `onNewWant`/Want handling.
+* **Window size:** `IslandOverlay.setDetailMode` sizes the floating window to `min(360vp, displayW-16) × min(720vp, displayH-140)` at y=60 — near full screen (≈360×676 vp on this 1320×2856 device), enough for the page.
+* **Key Prompts:** "the details did nothing"; "can we make the floating window large enough for that?"
+* **Testing & Debugging:** `hvigorw assembleHap` → **BUILD SUCCESSFUL**; installed (`install bundle successfully`) and relaunched.
+
+#### 4. Review & Validation
+* **Human Oversight / handoff:** developer to verify: scan a scam → **Details** → the enlarged floating window shows the incident page with next steps; **Back** shrinks it to the island.
+* **Security Checks:** no secrets; no new permissions.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful approaches (corrected):** the `startAbility`/Want → `EntryAbility.onNewWant` design (previous entry) cannot work from a backgrounded app; removed.
+* **Lessons Learned:** a third-party floating window can host its own routed pages; it cannot foreground the app's main ability. Large TYPE_FLOAT windows may be size-limited by the system — verify.
+
+---
+## Update: 2026-10-04 03:02:43
+**Developer:** s3r10us3r
+
+**Task:** on a scam result, swap the island's "Screenshot" button for "Details" and open a next-steps page rendered from the incident JSON.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** reuse the existing `pages/IncidentDetail` + `IncidentDetailView` + `parseIncident` (KB-shape JSON → title / what it is / why it matters / **what to do**). The island is a separate TYPE_FLOAT window, so navigate the **main** window deterministically via a `Want` (not the island window's router).
+* **Implementation:**
+  - `SmartIsland.ets`: added `@State incidentJson` + an `onDetails` callback; on a scam result it stores `JSON.stringify(incident)` and the card's primary button becomes **Details** (else **Screenshot**); reset on scan/minimize.
+  - `FloatingIsland.ets`: `onDetails` → `ctx.startAbility` a `Want` carrying `{ detailJson }` to the app's own ability, then closes the island.
+  - `EntryAbility.ets`: read `detailJson` from the Want in `onCreate`/`onNewWant`, store the main window in `onWindowStageCreate`, and `mainWindow.getUIContext().getRouter().pushUrl('pages/IncidentDetail', {json})`.
+* **Key Prompts:** "when a scam is reported I want the 'screenshot' button to change to details. Then render a page based on the supplied json with next steps."
+* **Testing & Debugging:** `hvigorw assembleHap` → **BUILD SUCCESSFUL** (ArkTS compiles; only pre-existing warnings). Per AGENTS §12, no emulator/UI validation performed.
+
+#### 4. Review & Validation
+* **Human Oversight / handoff:** developer to build/install and verify: scan a scam → button shows **Details** → tapping it opens the incident page in the main window with the steps.
+* **Security Checks:** no secrets; no new permissions; the JSON passed is the local KB incident (on-device).
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the detail page reads `router.getParams()` (global router) while the push uses the main window's UIContext router — expected to share the window's stack, but unverified; and the KB `Incident` interface omits `sources` (present at runtime from the parsed JSON, so it still serializes).
+* **Lessons Learned:** a page living in a secondary window must not navigate itself; route the main window via a Want + ability handling.
+
+---
+## Update: 2026-10-04 02:54:46
+**Developer:** s3r10us3r
+
+**Task:** correction + fix for "could not read the screen" (Dev-mode remote backend was down).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **CORRECTION to the 02:48:49 entry:** my "stale screenshot agent / 2300056 = capture" diagnosis was **wrong**. `2300056 "Failed to receive data from the peer"` is a **network** (`@kit.NetworkKit`) error: with **Dev mode ON**, the scan captures fine, then `RemoteOcrEngine.recognize()` → `RemoteClient.post('http://127.0.0.1:9100/ocr')` fails because the **host dev server was not running** (`C:\guardian-devserver\server.out` stops at 02:43:17, no 9100 listener). `ScreenScanner.describe()`'s fallback labels every unknown code "Screen capture failed (code …)", which made the error look like a capture failure. The DMS `agent is null` line was incidental.
+* **Fix applied:** relaunched the dev server detached (`serve.py --port 9100 --tools tools/laya --laya-dir C:\models\laya_model --device cuda`); `/health` → `{"ok":true,"ocr":true,"laya":true}`; reverse forward `tcp:9100` intact.
+* **Key Prompts:** "It is because the host dev server for running inference locally was freed."
+* **Testing & Debugging:** `GET /health` 200 (ocr+laya ready); read `server.out` history to confirm the server stopped at 02:43:17.
+
+#### 4. Review & Validation
+* **Human Oversight / handoff:** developer to retry the scan (per AGENTS §12 the agent did not judge the UI).
+* **Security Checks:** no secrets; server stays outside the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful approaches:** blaming the emulator screenshot service; force-stopping/relaunching the app (unnecessary).
+* **Lessons Learned:** a network failure in the remote path surfaces as a generic "screen capture failed" because `ScreenScanner.describe()` maps unknown codes to that text — it should distinguish OCR/network failures (proposed fix, not yet made). Known emulator caveat: `hdc`-side snapshots work independently, so a host screenshot does not prove the app path works.
+
+---
+## Update: 2026-10-04 02:48:49
+**Developer:** s3r10us3r
+
+**Task:** diagnose "screen capture failed" on the emulator (reported as a regression; it worked before).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Diagnosis (logs, not UI):** `GuardianScanner: scan failed {"code":2300056,"message":"Failed to receive data from the peer"}`; DMS `screen_session_manager_adapter.cpp OnScreenshot: agent is null`; yet the system capture-indicator animation plays (`ScreenCaptureWarningAnimation start/end`). → the request and permission are fine; the SA cannot deliver the frame back to the app because the screen-session **agent for the app is null** (stale registration, likely from reinstalling the HAP while the old process was still running).
+* **Remediation applied:** `aa force-stop com.example.huwaweichallenge` then `aa start -a EntryAbility -b com.example.huwaweichallenge` so the app re-registers. If it recurs, reboot the emulator (cold boot).
+* **Key Prompts:** "I got screen captured failed now?"; "It worked before btw."
+* **Testing & Debugging:** emulator `Pura 90` API **23** (`6.1.0.115`, image `HarmonyOS-6.0.31/phone_all_x86`); only one instance deployed. `hdc snapshot_display` still works (host-side path), which is why a host screenshot succeeds while the in-app `screenshot.capture()` fails.
+
+#### 4. Review & Validation
+* **Human Oversight / handoff:** developer to retry capture after the app relaunch (per AGENTS §12, the agent did not drive/judge the UI).
+* **Security Checks:** read-only diagnosis + app restart; no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** reinstalling a HAP while its process is alive can leave the display service's screen-capture agent stale → `2300056`; force-stop/relaunch (or reboot) fixes it. Not caused by UI code changes (capture path untouched). Some emulator images expose capture only via the host (`snapshot_display`), not the app API.
+
+---
+## Update: 2026-10-04 02:44:13
+**Developer:** s3r10us3r
+
+**Task:** simplify the Smart Island safe state; make UI validation the developer's responsibility in the rules.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** `SmartIsland.ets` — the green/safe branch no longer sets a detail line, so it shows only **"Looks safe"** (title); the card already hides an empty detail. `AGENTS.md` — added **§12 “UI validation belongs to the developer — agents delegate it”** and a matching pre-flight checklist item: agents must not drive the emulator, screenshot, or judge visual output; they hand UI changes back for the developer to verify.
+* **Key Prompts:** "Do not validate UI yourself, prompt it to me. Add it to the rules."; "the green path should just say 'looks safe' and that is it."
+* **Testing & Debugging:** code change only; **no build and no emulator/screenshot performed** (per the new rule).
+
+#### 4. Review & Validation
+* **Human Oversight / handoff:** developer to build and visually verify: the safe scan shows only "Looks safe" (no sub-line); the default island uses the shield.
+* **Security Checks:** no secrets; no permission changes.
+
+#### 5. Limitations & Lessons Learned
+* **State note:** the working tree changed underneath the session — `Index.ets` is now a polished dark "Guard" control screen (`Dev mode` switch) and a `shield.svg` media asset was added; those are the developer's own edits, not mine. My only UI edit this task is the safe-state line.
+* **Lessons Learned:** visual/UX verification is now explicitly the developer's; report build/test code-level results and ask for the visual check.
+
+---
+## Update: 2026-10-04 02:41:09
+**Developer:** s3r10us3r
+
+**Task:** consumer-facing UI cleanup of the Guardian main app — simplify the Smart Island popup and drop a paused investigation (recorded for the record).
+
+#### 1. AI Features
+* **Finding (paused per developer):** the base LAYA model does **not** flag misinformation. Measured on the host RLAgent (`C:\models\laya_model`, CUDA): the Moon claim `P(deceptive)=0.17`, the classic "drinking bleach cures every virus" `P=0.20`, and even a benign sunset post `P=0.44` — all below the app's `DECEPTIVE_DANGEROUS=0.30` gate; only the bank phishing sample crossed it (`0.54`). The `category` head *is* informative (Moon → misinformation 0.70–0.90), so a category-aware gate (misinformation ≠ intent to deceive) is the likely fix, but no code was changed.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash); host LAYA `RLAgent` via the devserver venv (torch 2.11+cu128, RTX 5050).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** `SmartIsland.ets` — removed the "Detected text / Scanned text" block and the now-unused `scanText` state; the neutral/default island now shows a **shield 🛡** (literal, as `AnswerPopup.ets` already does), with `iconFor()` mapping safe/empty → ✓, scam/error → ⚠, else 🛡.
+* **Key Prompts:** "drop the 'scanned text' section from the popup"; "make the default island have a shield emoji."
+* **Testing & Debugging:** `hvigorw assembleHap` → **BUILD SUCCESSFUL**.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer directed both exact changes.
+* **Security Checks:** no secrets; models stay git-ignored; no permissions changed.
+
+#### 5. Limitations & Lessons Learned
+* **Build gotcha:** hvigor's `exitIfNotExists` requires `fs.realpathSync.native(path) === path`; the repo folder is canonically **`C:\hackyeah2026`** (lowercase), so building from the commonly-used `C:\Hackyeah2026` fails with `PATH_NOT_FOUND` on `guardian_sdk`. Build from the canonical-cased path. DevEco here is at `C:\Program Files\Huawei\DevEco Studio`; `java` is not on PATH (use its `jbr\bin`).
+* **Limitations:** the misinformation gap above is unresolved; the Smart Island now shows no raw OCR text, so a wrong verdict is no longer self-evident on screen.
+
+---
+## Update: 2026-10-04 02:26:00
+**Developer:** s3r10us3r
+
+**Task:** escalate the `facebook-feed-mock` fake news to **deadpan, alarming, consequential** satire — the only tell that it's a joke should be the absurd premise (a pigeon mayor), so someone not in on it reads it as real breaking news.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** rewrote the featured pigeon-mayor post as a **state-of-emergency** bulletin (Crumb Security Act, bread surrender by midnight, closed schools, grounded flights, "enhanced cooing", overwhelmed hotlines) and rewrote the extra posts into consequential "real news" items (cat back-taxes under "paw enforcement", interpretive-dance traffic law with 412 collisions, transport authority confirms the commuting pigeon, WHO warns over a bed-rest record, sourdough declared a tax-exempt religion). Added a `breaking` flag + pulsing **BREAKING** chip, inflated reaction/share counts, and added alarmed comments that half-believe it.
+* **Key Prompts:** "Make it more absurd and more consequential, it has to be like **alarming** assuming someone does not get the obvious joke."
+* **Testing & Debugging:** `node --check app.js` → OK; served locally and opened in the browser tool → 3 BREAKING chips on initial render, featured emergency copy present, image loads, **0 console errors**; like/comment/scroll still work.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review tone; still holding for the real AI image.
+* **Security Checks:** static local files only; temp server + script live outside the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** content/UI change only; `assets/pigeon-mayor.svg` remains a hand-made placeholder awaiting a real AI-generated image.
+* **Lessons Learned:** in the invisible/headless browser the viewport reports ~0 height, so the scroll loader fires immediately — harmless in a real browser.
+
+---
+## Update: 2026-10-04 02:12:22
+**Developer:** s3r10us3r
+
+**Task:** build a new standalone project — a believable, scrollable Facebook feed mock with a featured fake-news post and an "obviously AI" image.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** new zero-dependency static web app at `facebook-feed-mock/` (`index.html`, `styles.css`, `app.js`, `assets/pigeon-mayor.svg`).
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** chose plain HTML/CSS/JS (no build, browser-viewable) over an ArkTS module so the visual could be verified immediately; authored feed data + interactions; responsive FB layout (top bar, stories, composer, sidebars, infinite scroll).
+* **Key Prompts:** "Create a new project there … believable, scrollable facebook feed mock … fake news with image … funny and obviously AI image … give me a few silly/funny fake news".
+* **Testing & Debugging:** served over a temporary local HTTP server, opened in the browser tool. Verified 6 initial posts + 4 appended on scroll, like toggle (275→276, `act liked`), comment toggle (3 comments, `comments open`), featured image loads 1200×675, **0 console errors**.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review the rendered mock; image asset still needs a real AI-generated replacement.
+* **Security Checks:** no secrets; static local files only; temp server + script live outside the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** I have **no image-generation tool**, so `assets/pigeon-mayor.svg` is a hand-made placeholder with deliberate AI tells (three eyes, extra hand, garbled text); replace it with a real AI image and update `FEATURED_IMAGE` in `app.js`.
+* **Lessons Learned:** `IntersectionObserver` does not fire in the invisible/headless browser tab — a scroll-position loader is more robust and also works in real browsers.
+
+---
+## Update: 2026-10-04 02:07:55
+**Developer:** s3r10us3r
+
+**Task:** onboarding — read the repo rules/design, verify the local toolchain, and confirm the device-free test suite on this Windows host.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** Windows host; git at `C:\Program Files\Git` (not on PATH, invoked by full path); Node.js v24.19.0 (`C:\Program Files\nodejs`) + global TypeScript 5.9.3 (`%APPDATA%\npm`); DevEco Studio at `C:\Program Files\Huawei\DevEco Studio`; host devserver `C:\guardian-devserver`; LAYA variants in `C:\models`.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** read root `AGENTS.md`, `HuwaweiChallenge/AGENTS.md`, `DESIGN.md` (§18 KB), `RUNNING.md`, `LAYA_INTEGRATION.md`, all three `AI_WORKFLOW_*.md`, then the as-built sources (`trigger/*`, `sdk/InAppSdkSource`, `vision/*`, `dev/*`, `data/*`, `di/AppContainer`, `alert/IncidentKb`).
+* **Key Prompts:** "read the repo and onboard yourself".
+* **Testing & Debugging:** `tsc -p tsconfig.tests.json` then `node --test ".test-build/tests/unit/*.test.js"` → **30/30 pass**.
+
+#### 4. Review & Validation
+* **Human Oversight:** n/a (read-only onboarding; no commits made).
+* **Security Checks:** no secrets touched; the dev-only `ohos.permission.INTERNET` is present in the working tree and flagged for removal before shipping.
+
+#### 5. Limitations & Lessons Learned
+* **State:** `main` @ `6b6ef45` (merge of PR #18); the working tree already carries **uncommitted** dev-only "Remote GPU" backend changes (`dev/`, `RemoteOcrEngine`, `RemoteDecisionRepository`; edits to `ScreenScanner`/`LayaClassifier`/`AppContainer`/`EntryAbility`/`Index`/`module.json5` and mockchat configs). Do not sweep these into unrelated commits.
+* **Lessons Learned:** git/node/tsc are installed but **not on PATH** on this host — invoke by full path.
+
+---
+## Update: 2026-10-04 02:44:13
+**Developer:** s3r10us3r
+
+**Task:** dataset generation + fine-tuning pipeline (three parallel subagents).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent `deepseek/deepseek-flash` + three `general`
+  background subagents.
+* **Configuration:** all outputs outside the repo (`C:\guardian-data`,
+  `C:\guardian-finetune`); shared JSONL data contract.
+
+#### 3. Development Workflow & Prompts
+* **Implementation (delegated):**
+  1. `C:\guardian-data\train.jsonl` — **40,000** rows, 50/50, hard negatives = 40%
+     of safe, deceptive mix scam/misinfo/harassment 55/25/20, domains
+     sms/email/chat/web/notification/news/app_ui.
+  2. `C:\guardian-data\test.jsonl` — **10,000** rows incl. ~500 ambiguous.
+  3. `C:\guardian-finetune\` — supervised CE on the per-question `[MASK]` logits
+     (frozen-encoder default; AMP + grad-accum), temperature calibration,
+     evaluation, `LayaResponse`-shaped `infer.py`, and `export_laya.py` (2-question
+     schema + Linux `converter_lite` command).
+* **Key Prompts:** "Create 3 subagents. 2 … generate 40K of synthetic and 10K test
+  data … Third … create a fine-tuning setup."
+* **Testing & Debugging:** smoke test (240-row synthetic, real 842 MB model):
+  trainable 26.5M/421M, 2 steps, val AUC 0.742, external 100-case AUC 0.850,
+  `export --check` parity OK. Verified `train.jsonl`=40,000 (`tr-000001`),
+  `test.jsonl`=10,000 (`te-000001`).
+
+#### 4. Review & Validation
+* **Human Oversight:** per the new **AGENTS §12**, UI/visual verification is
+  delegated to the developer (agents do code-level checks only).
+* **Security Checks:** synthetic entities (no PII); data/scripts outside the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** three agents sharing one output dir caused a
+  `train.jsonl` overwrite; agent 1 mitigated with a byte-identical backup and
+  re-validation.
+* **Lessons Learned:** the smoke AUC (240 rows) is not meaningful — results need
+  the real 40k run. On-device `.ms` re-export stays Linux-only (AGENTS §11).
+
+---
+## Update: 2026-10-04 02:36:17
+**Developer:** s3r10us3r
+
+**Task:** kick off dataset generation + a fine-tuning pipeline via three parallel
+subagents.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent `deepseek/deepseek-flash` orchestrating three
+  `general` subagents (background).
+* **Configuration:** shared JSONL data contract; all outputs outside the repo.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** the 100-case fit showed the base LAY A head is not
+  calibrated (optimal ≈0.20 → TPR 0.88 / FPR 0.26; heavy overlap), so reliability
+  needs a supervised fine-tune, not just a threshold.
+* **Implementation (delegated):** (1) 40K synthetic **train** → `C:\guardian-data\train.jsonl`;
+  (2) 10K **test** (incl. ~500 ambiguous) → `C:\guardian-data\test.jsonl`;
+  (3) fine-tuning + calibration + eval + inference/export setup →
+  `C:\guardian-finetune\`. Sessions `ses_efba902fbffe…`, `ses_efba902f9ffe…`,
+  `ses_efba902f7ffe…`.
+* **Key Prompts:** "Create 3 subagents. 2 … generate 40K of synthetic and 10K test
+  data … Third … create a fine-tuning setup."
+* **Testing & Debugging:** each agent validates counts/labels; the fine-tune agent
+  runs a 200-row smoke test only (data not ready yet).
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the `.ms` re-export still needs a Linux `converter_lite`; parity
+  with on-device is required before push (AGENTS §11).
+* **Lessons Learned:** sequence-based calibration needs hard-negative-heavy,
+  domain-diverse data; threshold tuning alone cannot fix an uncalibrated head.
+
+---
+## Update: 2026-10-04 02:29:34
+**Developer:** s3r10us3r
+
+**Task:** redesign the LAY A schema to two questions — a binary **safe/deceptive**
+gate plus a **category** — and add a remote/on-device parity rule.
+
+#### 1. AI Features
+* **Model/Service:** LAY A (`convaiinnovations/laya`) — schema changed from
+  `risk(noul)/category(5)/urgency(score)` to:
+  1. `deception` — **choice** `safe | deceptive` (the gate);
+  2. `category` — **choice** `scam | misinformation | harassment` (incident only).
+  Wording is content-agnostic ("this text", not "message").
+* **Inference Flow:** verdict = `P(deceptive)` gate (DANGEROUS ≥ 0.34,
+  CRITICAL ≥ 0.55); category never decides the verdict, only the incident copy.
+* **Data Handling & Privacy:** unchanged (on-device default; remote dev).
+* **Limitations & Validation:** **calibration is fragile** — base head gives scams
+  ~0.35–0.53, benign ~0.08–0.22, benign app/UI chrome ~0.32 (margin ~0.03), and
+  the category head is noisy (benign UI → `scam` 0.90). Home screen now shows
+  "Looks safe"; the full pipeline was re-run end-to-end via the remote backend.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none.
+* **Configuration:** uv devserver (CUDA LAY A); `hdc rport`.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** rewrote `domain/model/GuardianSchema.ets` (2 questions) and
+  `domain/usecase/AnalyseMessageUseCase.ets` (deception gate); updated the host
+  `serve.py` + `tools/laya/convert_laya.py` + `tools/laya/try_laya.py` SCHEMA to
+  match; added **AGENTS.md §11** (remote must match on-device before push; never
+  ship the remote path).
+* **Key Prompts:** "it shouldn't assume this is a message"; "the main question
+  should be: does this text try to deceive the user?"; "ask 2 — binary safe YES/NO
+  then if yes choose the incident category"; "make Q1 a safe/deceptive choice";
+  "add to the rules that the remote workflow must match the on-device one before
+  push".
+* **Testing & Debugging:** calibrated on ~10 samples; retuned thresholds;
+  re-scanned the home screen → `Looks safe`.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer chose the choice-form gate and the parity rule.
+* **Security Checks:** dev-only remote path; INTERNET still dev-only.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** deciding the verdict from the `category` head (it
+  flags benign UI as `scam` 0.90); the old 3-question category-harm rule is what
+  produced the "family-emergency" false positive.
+* **Lessons Learned:** the base LAY A head is **not calibrated** for a bespoke
+  binary question — a ~0.03 scam/benign margin is not shippable; needs
+  fine-tuning/calibration and input hygiene (exclude the status bar and the
+  island's own window from OCR). **Parity:** the hosted remote uses the new
+  2-question schema now; the on-device `.ms` is still 3-question and must be
+  re-exported (`convert_laya.py`, Linux `converter_lite`) before any push.
+
+---
+## Update: 2026-10-04 02:17:19
+**Developer:** s3r10us3r
+
+**Task:** dark-theme the control screen and fix the logo's visible background box.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** the mismatch was the `Image`'s rectangular `.shadow()` behind a
+  transparent SVG — removed it and set `backgroundColor(Color.Transparent)`. Moved
+  the page to a dark theme (`#0E1116` bg, light text `#F4F7FB`, muted `#8A93A3`,
+  divider `#232A34`, blue `#2E77FF` accents). Slightly brightened the shield's rim
+  for contrast on dark.
+* **Key Prompts:** "the guardian logo has a different background than rest of the
+  app. Also make it more dark themed."
+* **Testing & Debugging:** rebuilt/installed; **pixel-sampled** the screenshot —
+  logo box corners `(16,17,22)` == page background (no box); core white, rim steel;
+  page bg `#101116`.
+
+#### 4. Review & Validation
+* **Human Oversight:** reviewer to confirm the dark screen + clean logo.
+* **Security Checks:** UI-only.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** ArkUI `Image.shadow` paints a bounding-box shadow even for a
+  transparent SVG — use it only on opaque art; for a transparent logo, drop the
+  shadow (or rely on the artwork's own glow).
+
+---
+## Update: 2026-10-04 02:15:38
+**Developer:** s3r10us3r
+
+**Task:** UI polish pass on the control screen — metallic shield logo; move the dev
+backend control to a plain bottom switch.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** redesigned `shield.svg` as an "iron"-style emblem — steel rim,
+  gunmetal plate, rivets and a glowing blue arc-reactor core, **transparent
+  background** (no backdrop rect). Reworked `pages/Index.ets`: removed the gear
+  button and the URL text; the backend control is now a bottom row labeled only
+  **"Dev mode"** with a `Toggle`, above a divider.
+* **Key Prompts:** "Make the remote gpu dev a debug button."; "Make the gpu toggle
+  a switch at the bottom with only 'Dev mode' on it. Also make the guardian logo
+  more iron-like and make it have a transparent background."
+* **Testing & Debugging:** `assembleHap` → **BUILD SUCCESSFUL**; installed;
+  layout dump shows only `Image`, `Button` (Guard), `Toggle` (Dev mode), status
+  `Circle`/`Divider`; texts = Guardian / On-device scam protection / Guard / Idle /
+  Dev mode.
+
+#### 4. Review & Validation
+* **Human Oversight:** reviewer to check the screenshot (shield + switch).
+* **Security Checks:** UI-only; dev switch still persists the backend choice.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** keep dev affordances visually quiet (a plain labeled
+  switch) so the product screen reads clean.
+
+---
+## Update: 2026-10-04 02:12:25
+**Developer:** s3r10us3r
+
+**Task:** redesign the Guardian control screen (first UI pass): shield logo,
+single primary **Guard** action, keep only the dev backend switch.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** the control screen should read as a product, not a
+  test harness: brand block (logo + name + tagline), one primary action, and the
+  dev switch tucked at the bottom.
+* **Implementation:** new vector `entry/src/main/resources/base/media/shield.svg`
+  (gradient shield + check); rewrote `pages/Index.ets` to a light card layout —
+  shield `Image`, "Guardian", tagline, a large pill `Guard`/`Stop guarding`
+  button with an Active/Idle status dot, and the "Remote GPU (dev)" `Toggle` with
+  the base URL. Removed the OCR-demo / incident-detail / Laya-demo buttons.
+* **Key Prompts:** "Now we are going to UI work. First the main app page. Make it
+  pretty, create a shield logo. Hide all of the buttons other than *guard* and the
+  debug switch."
+* **Testing & Debugging:** `hvigorw assembleHap` → **BUILD SUCCESSFUL**;
+  installed on the emulator; layout dump confirms only `Image` (shield), `Button`
+  (Guard) and `Toggle` (dev) plus the status dot — the demo buttons are gone.
+
+#### 4. Review & Validation
+* **Human Oversight:** reviewer to check the screenshot; more UI passes to follow.
+* **Security Checks:** UI-only change; no permissions/secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the SVG logo relies on ArkUI SVG support (rendered here);
+  route pages still exist but are no longer linked from the main screen.
+* **Lessons Learned:** keep the debug affordance visually separate so the main
+  screen stays product-clean.
+
+---
+## Update: 2026-10-04 02:08:11
+**Developer:** s3r10us3r
+
+**Task:** stand up the host LAY A engine on CUDA (uv project) so the in-app remote
+backend is fully live, and validate the whole remote pipeline.
+
+#### 1. AI Features
+* **Model/Service:** host LAY A (`convaiinnovations/laya`) via the repo's
+  `RLAgent` on **CUDA**; PP-OCRv4 via `rapidocr-onnxruntime`.
+* **Inference Flow (remote mode):** island Screenshot → `POST /ocr` → text →
+  `POST /predict` → `LayaResponse` → island card. On-device stays the default.
+* **Data Handling & Privacy:** DEV ONLY — the frame/text go to the host; the
+  shipping build stays offline.
+* **Limitations & Validation:** remote pipeline **works end-to-end** —
+  `GuardianScanner: scan text=295 error=`, server `POST /ocr 200` then
+  `POST /predict 200`. Host latency: OCR ≈1.5 s, LAY A **36–319 ms** on the
+  RTX 5050 (vs ~36 s on the emulator). Verdicts sane: scam → `category=scam`
+  (0.93), legit → `legitimate` (0.73).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none.
+* **Configuration:** **uv** project `C:\guardian-devserver` (uv 0.10.9);
+  torch 2.11.0+cu128, transformers 4.57.6, safetensors, huggingface_hub,
+  rapidocr-onnxruntime 1.4.4; model at `C:\models\laya_model`.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** converted the devserver to a `uv` project
+  (`pyproject.toml` with a `pytorch-cu128` explicit index + `[tool.uv.sources]`);
+  `uv sync`; updated `run.ps1` to `uv run`.
+* **Key Prompts:** "Install torch and wire up laya_model"; "I installed uv. Do the
+  python project using uv, it will be faster"; "Go go".
+* **Testing & Debugging:** fixed an over-broad Stop-Process that left the old
+  server bound to 9100 (`taskkill /F /PID`); discovered uv resolved ancient
+  transformers (pinned `>=4.48,<5`); added `utf-8-sig` decode and per-stage
+  timing in `serve.py`.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer drove the app flow; results confirmed via logs
+  and screenshots.
+* **Security Checks:** devserver is outside the repo; INTERNET remains dev-only;
+  no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** pip into the Windows Store Python (slow, and not
+  reproducible); the first uv resolve picked transformers 4.12.2 (needs a pin).
+* **Lessons Learned:** uv with a scoped CUDA index is the fast, reproducible path;
+  CUDA on the RTX 5050 (sm_120) needs a recent cu128 wheel; a lingering server
+  holding port 9100 silently breaks `/health` (`laya:false`).
+
+---
+## Update: 2026-10-04 01:51:32
+**Developer:** s3r10us3r
+
+**Task:** verify the dev remote backend end-to-end and fix the switch's initial state.
+
+#### 1. AI Features
+* **Model/Service:** host PP-OCRv4 via `rapidocr-onnxruntime` (verified); host
+  LAY A still pending `torch` + the `laya_model` download.
+* **Inference Flow:** with the switch ON the app POSTs to `127.0.0.1:9100`
+  (through `hdc rport`); verified the host read the bundled sample and a live
+  screenshot.
+* **Limitations & Validation:** host OCR **works**; remote LAY A returns 503 until
+  torch is installed. App→host routing proven (`RespCode:503` to port 9100).
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none.
+* **Configuration:** `rapidocr-onnxruntime` 1.2.3 (onnxruntime 1.30, opencv 5.0);
+  server `C:\guardian-devserver\serve.py`.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** after the first impl, moved `BackendSettings.load` into
+  `onWindowStageCreate` (awaited) and read the flag in `aboutToAppear` so the
+  toggle reflects the persisted value on first render.
+* **Key Prompts:** "Do that… keep the py files in separate folder from root repo.
+  Make in app debug switch."
+* **Testing & Debugging:** toggled the switch → `backend set to remote`; app did
+  `POST http://127.0.0.1:9100/predict` → `HTTP 503` (host LAY A off) — routing OK.
+  Host `/ocr` returned the sample text and the screenshot text verbatim.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer will toggle the switch after starting the host
+  server with `--laya-dir`.
+* **Security Checks:** INTERNET is dev-only; the devserver is outside the repo;
+  no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** remote LAY A needs the host Python env (torch + `laya_model`).
+* **Lessons Learned:** an ArkUI `Toggle` needs its `@State` set before first
+  render (load persisted settings before `loadContent`); the emulator guest has no
+  `curl`, so remote paths are exercised through the app.
+
+---
+## Update: 2026-10-04 01:48:57
+**Developer:** s3r10us3r
+
+**Task:** add a dev-only "remote GPU" backend (host server for OCR + LAY A)
+behind an in-app debug switch, for faster iteration.
+
+#### 1. AI Features
+* **Model/Service:** same models, now optionally served from the host — PP-OCRv4
+  (via `rapidocr-onnxruntime`) and LAY A (the repo's `RLAgent` on CUDA).
+* **Inference Flow:** with the switch ON, `RemoteOcrEngine` JPEG-encodes the
+  captured frame and `POST /ocr`; `RemoteDecisionRepository` `POST /predict`.
+  The server's `/scan` does both in one call. OFF → the original on-device
+  MindSpore Lite path (unchanged, default).
+* **Data Handling & Privacy:** DEV ONLY. In remote mode the frame/text leave the
+  device; `ohos.permission.INTERNET` is declared dev-only in `module.json5` and
+  must be removed before the shipping build.
+* **Limitations & Validation:** app compiles and installs; server `/health` + the
+  `hdc rport` reverse-forward verified. End-to-end OCR/LAY A still to be timed
+  once the host Python deps are installed.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`
+  (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** host dev server at `C:\guardian-devserver` (separate folder,
+  outside the repo); `hdc rport tcp:9100 tcp:9100`; ArkData `preferences` for the
+  persisted switch.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** the `DecisionRepository` port and the
+  `OcrEngine` seam allow new adapters with no UI change; `AppContainer` +
+  `BackendFactory` pick them.
+* **Implementation:** new `dev/BackendSettings.ets` (persisted switch),
+  `dev/RemoteClient.ets`, `vision/RemoteOcrEngine.ets`,
+  `data/datasource/RemoteDecisionRepository.ets`, `dev/BackendFactory.ets`; edited
+  `ScreenScanner`, `AppContainer`, `LayaClassifier` (recreate on mode change),
+  `Index` (toggle), `EntryAbility` (load), `module.json5` (INTERNET, dev).
+* **Key Prompts:** "Can we also run local inference for OCR?"; "Do that, keep the
+  py files in separate folder from root repo. Make in app debug switch."
+* **Testing & Debugging:** `hvigorw assembleHap` → **BUILD SUCCESSFUL**; installed
+  on the emulator; `GET /health` → `{"ok":true,...}`; `hdc fport ls` shows the
+  reverse forward.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer requested the switch and the separate devserver
+  folder; on-device path remains the default.
+* **Security Checks:** INTERNET is dev-only and flagged; no secrets committed; the
+  devserver lives outside the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the emulator guest has no `curl`, so the remote path is tested
+  through the app; host LAY A needs `torch` + the `laya_model` download.
+* **Lessons Learned:** keep the port/seam so a dev backend is additive; declare
+  the INTERNET permission only in the dev build.
+
+---
+## Update: 2026-10-04 01:36:35
+**Developer:** s3r10us3r
+
+**Task:** provision the LAYA w8/s256 model and validate the full
+screenshot→OCR→LAY A→KB flow on the emulator; measure latency.
+
+#### 1. AI Features
+* **Model/Service:** LAYA `laya_en_w8_s256.ms` (weight-only int8, seq 256,
+  412 MB, from `C:\models`) via MindSpore Lite; PP-OCRv4 OCR.
+* **Inference Flow:** island Screenshot → `screenshot.capture()` → PP-OCRv4
+  (det+rec) → text (442 chars) → LAYA (`risk`/`category`/`urgency`) → verdict →
+  incident KB.
+* **Data Handling & Privacy:** fully on-device; no network permission.
+* **Limitations & Validation:** full pipeline **succeeded**
+  (`scan text=442 error=`). On the Pura 90 emulator (HarmonyOS 6.1.0(23), x86_64,
+  4 vCPU, 16 GB): OCR load 0.13 s, detect 1.08 s, recognize 12.76 s; LAYA load
+  ≈8.8 s (once), **infer 35.98 s** (tokens=144); end-to-end ≈60 s first scan.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`
+  (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** model bundled into `rawfile/`; built with hvigor + JDK 17;
+  UI driven via `uitest uiInput`; logs via `hilog -x`.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** provision by bundling into `rawfile/` (first run
+  copies to `filesDir`); verify with the LayaDemo page, then the island.
+* **Implementation:** copied `C:\models\laya_en_w8_s256.ms` (magic
+  `280000004d534c32`) → `rawfile/`; rebuilt (HAP 423.8 MB) and installed.
+* **Key Prompts:** "We have C:\models now. Use the w8_s256 english laya"; "Check
+  the logs… What was the latency? Can we speed it up on the emu?"; "Maybe a
+  different image? Can i forward inference to my gpu?".
+* **Testing & Debugging:** confirmed valid MSL2 header, `model loaded`,
+  `infer ok`, `scan ... error=`; NNRt probe reports none (CPU-only).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer ran the full app workflow; agent confirmed via
+  logs and screenshots.
+* **Security Checks:** the `.ms` is git-ignored (not committed); no secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the emulator is CPU-only (no NNRt/NPU); LAYA inference
+  dominates (~36 s). A different emulator image does not add acceleration, and
+  the host GPU cannot be forwarded into the QEMU guest for MindSpore compute.
+* **Lessons Learned:** the biggest emulator lever is a **shorter-sequence** model
+  (s256→s128; attention is O(seq²)) — needs the Linux converter; plus warming the
+  ≈9 s model load and trimming OCR. The real "use the GPU/NPU" path is a Kirin
+  device via NNRt.
+
+---
+## Update: 2026-10-04 01:26:24
+**Developer:** s3r10us3r
+
+**Task:** diagnose the island's "Could not read the screen" error on the
+HarmonyOS emulator.
+
+#### 1. AI Features
+* **Model/Service:** PP-OCRv4 (bundled OCR) and LAYA
+  (`laya_en_w8_s256.ms`, MindSpore Lite).
+* **Inference Flow:** screenshot → PP-OCRv4 → text (272 chars) → LAYA classify →
+  verdict. On-device only.
+* **Limitations & Validation:** **OCR works** (models 146 ms; 14 boxes/lines);
+  **LAY A fails** — the model is not present.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`
+  (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** emulator Pura 90 (HarmonyOS 6.1.0(23)); logs via
+  `hdc shell hilog -x` filtered by `Guardian*` / `Laya*`.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** traced the error string to `SmartIsland.ets:65`
+  ("Could not read the screen"), then read `ScreenScanner`, `vision/OcrEngine`,
+  `MindSporeLiteEngine`, `LayaWorker`, `LayaEngineClient`.
+* **Implementation:** none (diagnosis).
+* **Key Prompts:** "Check logs. Something weird happened, i got 'can't read the
+  screen' like the OCR model does not work?"
+* **Testing & Debugging:** `GuardianOcr: models loaded / detect 14 boxes /
+  recognized 14 lines` (OCR OK); `LayaDevice: rawfile model copy failed: Invalid
+  relative path`; `GuardianScanner: laya classify failed: {}`. Device app `files/`
+  dir is empty and no `*.ms` exists under `/data/app` or `/data/storage`.
+
+#### 4. Review & Validation
+* **Human Oversight:** findings reported to the developer; awaiting the decision
+  on model provisioning.
+* **Security Checks:** n/a (read-only diagnosis).
+
+#### 5. Limitations & Lessons Learned
+* **Root cause:** the LAYA classifier `.ms` is git-ignored and not bundled on
+  `main`; it must be provisioned (bundle into `rawfile/` for a first install or
+  place in the sandbox `files/`). The island title is **misleading** — it is shown
+  for *any* error (capture, OCR, or model).
+* **Lessons Learned:** `MindSporeLiteEngine.ensureReady` swallows the rawfile-copy
+  failure and proceeds, and `JSON.stringify(error)` logs `{}`, so the real cause
+  is hidden; OCR success vs model-unavailable should be surfaced distinctly.
+
+---
+## Update: 2026-10-04 01:23:58
+**Developer:** s3r10us3r
+
+**Task:** pull latest `main`, then build, install, and launch both repo apps on the
+local HarmonyOS emulator.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`
+  (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** DevEco Studio bundled toolchain — node v18.20.1
+  (`tools\node`), hvigor 6.x, ohpm; Temurin **JDK 17** on PATH;
+  `DEVECO_SDK_HOME=<DevEco>\sdk` (API 24 / 6.1.1); emulator **"Pura 90"**
+  (HarmonyOS 6.1.0(23), x86_64) via hdc `127.0.0.1:5555`.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** fast-forwarded `d9d0508` → `6b6ef45` (PR #18, LAYA
+  integration); backed up untracked `oh-package-lock.json5` that collided with the
+  newly tracked one; added `**/oh-package-lock.json5` to `.gitignore`.
+* **Implementation:** built `HuwaweiChallenge` and `mocks/mockchat` with hvigor
+  `assembleHap`; aligned mockchat from OpenHarmony/API-20 hvigor 5.1.0 to HarmonyOS
+  `6.1.1(24)` (build-profile, oh-package, hvigor-config) so the API-24 SDK resolves it.
+* **Key Prompts:** "Pull the newest main then make the apps build on the emu";
+  "install the apps on emu"; "generally let's .gitignore it".
+* **Testing & Debugging:** both builds `BUILD SUCCESSFUL` (the package step shells
+  out to `java` → JDK 17 must be on PATH); unsigned HAPs install and launch on the
+  emulator; verified via `bm dump -a` (both bundles) and `aa dump -l` (Guardian
+  `#FOREGROUND`); captured emulator screenshots of both apps.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer started the emulator; results verified via
+  screenshots and bundle/mission dumps.
+* **Security Checks:** no signing material or secrets committed; the new
+  `.gitignore` rule is local; lock files contain no secrets (public registry URLs +
+  sha512 integrity only).
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** building mockchat as committed failed — its
+  hvigor 5.1.0 / OpenHarmony config needs `OHOS_BASE_SDK_HOME`, which this single
+  API-24 SDK does not provide.
+* **Lessons Learned:** `PackageHap` shells out to `java` (needs JDK 17 on **PATH**,
+  not just `JAVA_HOME`); the emulator accepts **unsigned** HAPs, so no Huawei
+  signing profile is required for local runs.
+
+---
+## Update: 2026-10-04 01:11:15
+**Developer:** s3r10us3r
+
+**Task:** unblock phone emulators in DevEco Studio (region fix) on the Windows host.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`
+  (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** teammate-provided `fix-deveco-emulator-region.ps1` (Discord),
+  stored locally under `%TEMP%\opencode\` — local tooling only, not committed (§9).
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** DevEco offers only watch emulators in the EU region;
+  the fix sets region `CN` in `options\country.region.xml` and clears `caches\grs.json`.
+* **Implementation:** closed all `devecostudio64` processes; fixed a parse bug in
+  the script (`"$Region:"` → `"${Region}:"`); ran it.
+* **Key Prompts:** "we need to run it to make the emulation from DevEco work".
+* **Testing & Debugging:** verified `country.region.xml` = `CN`, `grs.json`
+  removed, `.bak` backups created; exit code 0.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer authorized closing DevEco; the result was
+  reported before the IDE was reopened.
+* **Security Checks:** no secrets; the script is local tooling and is not
+  committed to the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** the raw script fails to parse — `$Region:` is read
+  as a drive-qualified variable reference.
+* **Lessons Learned:** the change only edits local IDE config and is reversible
+  from the `.bak` files; DevEco must be fully closed or it rewrites the file on exit.
+
+---
+## Update: 2026-10-04 01:06:48
+**Developer:** s3r10us3r
+
+**Task:** onboarding — clone the repo on a fresh Windows host, restore the local
+toolchain, and verify the device-free test suite.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`
+  (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+* **Configuration:** Windows host; `gh` 2.102.0 authenticated as `s3r10us3r`;
+  installed Node.js 24.19.0 LTS + Temurin JDK 17.0.20.101 + global TypeScript
+  5.9.3. Git/`gh` were already installed but **not on PATH** (added per command);
+  no identity was set, so global `user.name`/`user.email` were configured from
+  the GitHub noreply address.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** read root `AGENTS.md`, `HuwaweiChallenge/AGENTS.md`,
+  `DESIGN.md` (§17 as-built, §18 KB), `RUNNING.md`, and both existing AI_WORKFLOW
+  files to reconstruct the Guardian design and logging rules.
+* **Implementation:** `gh repo clone jgeb28/hackyeah2026` (private repo, branch
+  `main`, last commit `d9d0508`); set global git identity.
+* **Key Prompts:** "Clone this repo and onboard"; identity chosen `s3r10us3r`;
+  setup depth "install Node 20 + JDK 17, run unit tests".
+* **Testing & Debugging:** `tsc -p tsconfig.tests.json` then
+  `node --test ".test-build/tests/unit/*.test.js"` → **30/30 pass**.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer selected the git identity and setup depth; the
+  test result was reported before any commit.
+* **Security Checks:** no secrets added; `.test-build/` is git-ignored; the git
+  email is the GitHub noreply address; no signing material touched.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** global `typescript@7` cannot compile the existing
+  `tsconfig.tests.json` (`moduleResolution=node10` was removed); Node 24's test
+  runner rejects a **directory** argument — a glob is required.
+* **Limitations:** only the device-free unit suite runs here; a HAP build/emulator
+  run is not yet set up on this host.
+
+---
 ## Update: 2026-10-03 23:52:00
 **Developer:** s3r10us3r
 

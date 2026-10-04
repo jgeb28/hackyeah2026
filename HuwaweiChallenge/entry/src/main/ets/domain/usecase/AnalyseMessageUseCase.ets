@@ -15,20 +15,23 @@ import { GuardianSchema, SchemaQuestion } from '../model/GuardianSchema';
 import { DecisionRepository } from '../repository/DecisionRepository';
 
 /**
- * Verdict policy. Laya's base checkpoint has an unreliable `noul` (risk) head
- * (see model card / our validation), so the verdict keys off the **category**
- * distribution: P(scam) + P(harassment), with misinformation as a secondary.
+ * Verdict policy for the two-question deception schema.
+ *
+ * The gate is the `deception` choice: P(deceptive). `category` only selects the
+ * incident shown afterwards (its head is noisy, so it never decides the verdict).
+ *
+ * Thresholds are **provisional and fragile** — the base Laya head is not
+ * calibrated for this bespoke question. Measured: scams ~0.35-0.53, benign text
+ * ~0.08-0.22, benign app/UI chrome up to ~0.32. The margin is ~0.03, so this
+ * MUST be replaced by a fine-tuned/calibrated head before shipping.
  */
-const HARM_CRITICAL: number = 0.60;
-const HARM_DANGEROUS: number = 0.40;
-const MISINFO_DANGEROUS: number = 0.50;
+const DECEPTIVE_DANGEROUS: number = 0.34;
+const DECEPTIVE_CRITICAL: number = 0.55;
 
 /**
- * Analyse a message with Laya and turn its typed answers into a Guardian verdict.
- *
- * The questions come from `GuardianSchema` so the request and the on-device
- * graph share one definition. This is the only place where "model output"
- * becomes a product decision.
+ * Analyse on-screen text with Laya and turn its typed answers into a Guardian
+ * verdict. The questions come from `GuardianSchema` so the request and the
+ * on-device graph share one definition.
  */
 export class AnalyseMessageUseCase {
   private readonly repository: DecisionRepository;
@@ -88,35 +91,30 @@ export class AnalyseMessageUseCase {
     analysis.model = response.model;
     analysis.latencyMs = response.latencyMs;
 
-    const risk: LayaAnswer | undefined = response.answers[GuardianSchema.RISK.key];
+    const deception: LayaAnswer | undefined = response.answers[GuardianSchema.DECEPTION.key];
     const category: LayaAnswer | undefined = response.answers[GuardianSchema.CATEGORY.key];
-    const urgency: LayaAnswer | undefined = response.answers[GuardianSchema.URGENCY.key];
 
     analysis.answers = [
-      this.render('Risk', risk),
-      this.render('Category', category),
-      this.render('Urgency', urgency)
+      this.render('Deception', deception),
+      this.render('Category', category)
     ];
 
     const categoryName: string = category !== undefined ? category.choice : '';
     analysis.category = categoryName;
-    analysis.confidence = category !== undefined ? category.confidence : 0;
 
-    const probs: Record<string, number> = category !== undefined ? category.probabilities : {};
-    const pScam: number = probs['scam'] !== undefined ? probs['scam'] : 0;
-    const pHarassment: number = probs['harassment'] !== undefined ? probs['harassment'] : 0;
-    const pMisinformation: number = probs['misinformation'] !== undefined ? probs['misinformation'] : 0;
-    const harm: number = pScam + pHarassment;
+    const probs: Record<string, number> = deception !== undefined ? deception.probabilities : {};
+    const pDeceptive: number = probs['deceptive'] !== undefined ? probs['deceptive'] : 0;
+    analysis.confidence = deception !== undefined ? deception.confidence : 0;
 
-    if (harm >= HARM_CRITICAL) {
+    if (pDeceptive >= DECEPTIVE_CRITICAL) {
       analysis.verdict = Verdict.CRITICAL;
-      analysis.summary = 'High-confidence scam. Do not reply, click links or send money.';
-    } else if (harm >= HARM_DANGEROUS || pMisinformation >= MISINFO_DANGEROUS) {
+      analysis.summary = 'High-confidence deception. Do not reply, click links or send money.';
+    } else if (pDeceptive >= DECEPTIVE_DANGEROUS) {
       analysis.verdict = Verdict.DANGEROUS;
-      analysis.summary = 'This looks suspicious. Verify the sender through a channel you trust.';
+      analysis.summary = 'This text looks deceptive. Verify through a channel you trust.';
     } else {
       analysis.verdict = Verdict.SAFE;
-      analysis.summary = 'No strong scam signals, but stay cautious with links and payments.';
+      analysis.summary = 'No deception detected, but stay cautious with links and payments.';
     }
 
     return analysis;

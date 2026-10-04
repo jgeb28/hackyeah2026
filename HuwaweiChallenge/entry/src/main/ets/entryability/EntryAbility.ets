@@ -4,6 +4,7 @@ import { notificationManager } from '@kit.NotificationKit';
 import { window } from '@kit.ArkUI';
 import { AlertOverlay } from '../alert/AlertOverlay';
 import { AlertTheme } from '../alert/AlertTheme';
+import { BackendSettings } from '../dev/BackendSettings';
 import { IncidentKb } from '../alert/IncidentKb';
 import { IslandOverlay } from '../alert/IslandOverlay';
 import { InAppSdkSource } from '../sdk/InAppSdkSource';
@@ -41,7 +42,8 @@ export default class EntryAbility extends UIAbility {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
   }
 
-  onWindowStageCreate(windowStage: window.WindowStage): void {
+  async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
+    await BackendSettings.load(this.context);
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));

@@ -14,6 +14,7 @@ export interface Incident {
   description: string;
   explanation: string;
   remediation: string[];
+  keywords?: string[];
 }
 
 interface KbRoot {
@@ -64,5 +65,36 @@ export class IncidentKb {
       }
     }
     return best;
+  }
+
+  /**
+   * Best incident for the scanned text: among the category's incidents, the one
+   * whose keywords appear most in the text (a specific match); otherwise the most
+   * severe for the category. Keyword matching keeps e.g. a parcel scam on the
+   * WARNING `delivery-fee-smishing` case instead of the CRITICAL family scam.
+   */
+  static forText(text: string, category: string): Incident | null {
+    const hay: string = text.toLowerCase();
+    let best: Incident | null = null;
+    let bestScore: number = 0;
+    for (let i = 0; i < IncidentKb.incidents.length; i++) {
+      const incident: Incident = IncidentKb.incidents[i];
+      if (incident.category !== category) {
+        continue;
+      }
+      const keywords: string[] = incident.keywords !== undefined ? incident.keywords : [];
+      let score: number = 0;
+      for (let k = 0; k < keywords.length; k++) {
+        const kw: string = keywords[k].toLowerCase();
+        if (kw.length >= 3 && hay.indexOf(kw) >= 0) {
+          score++;
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = incident;
+      }
+    }
+    return bestScore > 0 ? best : IncidentKb.forCategory(category);
   }
 }
