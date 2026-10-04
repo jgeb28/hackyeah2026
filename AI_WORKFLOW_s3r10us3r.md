@@ -9,6 +9,26 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 13:20:00
+**Developer:** s3r10us3r
+
+**Task:** produce a **signed** HAP artifact for a real-device demo.
+
+#### 3. Development Workflow & Prompts
+* **Signing:** DevEco Studio → Project Structure → Signing Configs → **Automatically generate signature** (Huawei developer account) created a `default` signing config (cert `~/.ohos/config/*.cer`, profile `*.p7b`, keystore `*.p12`) and wrote a `signingConfigs` block into `build-profile.json5`.
+* **Install fix:** the first signed install failed with `code:9568332 install sign info inconsistent` (device still had the unsigned build) → `bm uninstall -n com.example.huwaweichallenge`, then install; the signed app launches.
+* **CLI:** `assembleHap` now runs `SignHap` (no "skip sign" warning) and emits `entry-default-signed.hap` (~444 MB, includes the bundled `.ms`).
+* **Key Prompts:** "Now I need you to be able to build the .hap artifact."; "We need a signed build. I logged in into huwawei developer account in the dev IDE."
+
+#### 4. Review & Validation
+* **Human Oversight:** signing config generated from the developer's own Huawei account; developer to review before any broader distribution.
+* **Security Checks:** the `signingConfigs` block (absolute paths + encrypted passwords) is kept **local** via `git update-index --skip-worktree HuwaweiChallenge/build-profile.json5`; cert/key/profile live in `~/.ohos/config` (outside the repo) and are covered by `.gitignore` (`*.p12`, `*.p7b`, `*.cer`). `*.hap` is git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the signed HAP is 444 MB — distribute via a GitHub Release, not the repo. Signing material is machine-specific, so other checkouts build unsigned until they add their own config.
+* **Lessons Learned:** switching an install from unsigned to signed requires a one-time uninstall (sign-info mismatch); DevEco auto-signing stores material under `~/.ohos/config` and references it from `build-profile.json5`, so that block must never be committed.
+
+---
 ## Update: 2026-10-04 13:00:00
 **Developer:** s3r10us3r
 
