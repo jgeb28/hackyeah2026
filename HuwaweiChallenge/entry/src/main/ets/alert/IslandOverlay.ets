@@ -1,4 +1,5 @@
-// Floating smart-island window (TYPE_FLOAT) so the user can scan while using other apps.
+// Floating smart-island window (TYPE_FLOAT), anchored around the camera cutout so
+// the user can scan while using other apps.
 import { common, wantAgent } from '@kit.AbilityKit';
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { window, display } from '@kit.ArkUI';
@@ -7,14 +8,13 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 const DOMAIN: number = 0x0A11;
 const TAG: string = 'GuardianIslandWin';
 const WIN_NAME: string = 'guardian_island_overlay';
-const WIN_XL_VP: number = 276;
 const WIN_XS_W_VP: number = 164;
 const WIN_XS_H_VP: number = 52;
+const WIN_XL_VP: number = 276;
 const WIN_XL_H_VP: number = 288;
-const WIN_Y_VP: number = 40;
-const WIN_DETAIL_W_VP: number = 320;
-const WIN_DETAIL_H_VP: number = 560;
-const WIN_DETAIL_Y_VP: number = 80;
+const DETAIL_W_VP: number = 320;
+const DETAIL_H_VP: number = 560;
+const DETAIL_Y_VP: number = 80;
 const BUNDLE: string = 'com.example.huwaweichallenge';
 
 export class IslandOverlay {
@@ -22,6 +22,9 @@ export class IslandOverlay {
   private static ctx: common.UIAbilityContext | undefined = undefined;
   private static bgStarted: boolean = false;
   private static detailMode: boolean = false;
+  /** Camera-cutout centre x (px) and the capsule's top y (px). */
+  private static camCx: number = 0;
+  private static topY: number = 0;
 
   static setContext(context: common.UIAbilityContext): void {
     IslandOverlay.ctx = context;
@@ -81,6 +84,7 @@ export class IslandOverlay {
       return true;
     }
     try {
+      await IslandOverlay.computePlacement();
       const w: number = IslandOverlay.dp(WIN_XS_W_VP);
       const h: number = IslandOverlay.dp(WIN_XS_H_VP);
       const win: window.Window = await window.createWindow({
@@ -90,7 +94,7 @@ export class IslandOverlay {
       });
       await win.loadContent('pages/FloatingIsland');
       await win.resize(w, h);
-      await win.moveWindowTo(IslandOverlay.centerX(w), IslandOverlay.dp(WIN_Y_VP));
+      await win.moveWindowTo(IslandOverlay.xFor(w), IslandOverlay.topY);
       await win.showWindow();
       try {
         await win.setWindowBackgroundColor('#00000000');
@@ -99,7 +103,7 @@ export class IslandOverlay {
       }
       IslandOverlay.win = win;
       await IslandOverlay.startBackground();
-      hilog.info(DOMAIN, TAG, 'island window shown');
+      hilog.info(DOMAIN, TAG, 'island shown at x=%{public}d y=%{public}d', IslandOverlay.xFor(w), IslandOverlay.topY);
       return true;
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'island failed: %{public}s', JSON.stringify(err));
@@ -107,7 +111,7 @@ export class IslandOverlay {
     }
   }
 
-  /** Grow/shrink the floating window with the island so it blocks as little as possible. */
+  /** Grow/shrink the floating window between the capsule and the expanded card. */
   static resize(expanded: boolean): void {
     const win: window.Window | null = IslandOverlay.win;
     if (win === null) {
@@ -116,7 +120,7 @@ export class IslandOverlay {
     const w: number = IslandOverlay.dp(expanded ? WIN_XL_VP : WIN_XS_W_VP);
     const h: number = IslandOverlay.dp(expanded ? WIN_XL_H_VP : WIN_XS_H_VP);
     win.resize(w, h).then(() => {
-      return win.moveWindowTo(IslandOverlay.centerX(w), IslandOverlay.dp(WIN_Y_VP));
+      return win.moveWindowTo(IslandOverlay.xFor(w), IslandOverlay.topY);
     }).catch((err: Error) => {
       hilog.warn(DOMAIN, TAG, 'resize failed: %{public}s', err.message);
     });
@@ -135,13 +139,13 @@ export class IslandOverlay {
     const d: display.Display = display.getDefaultDisplaySync();
     const maxW: number = d.width / d.densityPixels;
     const maxH: number = d.height / d.densityPixels;
-    const wVp: number = on ? Math.min(WIN_DETAIL_W_VP, maxW - 16) : WIN_XL_VP;
-    const hVp: number = on ? Math.min(WIN_DETAIL_H_VP, maxH - 140) : WIN_XL_H_VP;
-    const yVp: number = on ? WIN_DETAIL_Y_VP : WIN_Y_VP;
+    const wVp: number = on ? Math.min(DETAIL_W_VP, maxW - 16) : WIN_XL_VP;
+    const hVp: number = on ? Math.min(DETAIL_H_VP, maxH - 140) : WIN_XL_H_VP;
+    const y: number = on ? IslandOverlay.dp(DETAIL_Y_VP) : IslandOverlay.topY;
     const w: number = IslandOverlay.dp(wVp);
     const h: number = IslandOverlay.dp(hVp);
     win.resize(w, h).then(() => {
-      return win.moveWindowTo(IslandOverlay.centerX(w), IslandOverlay.dp(yVp));
+      return win.moveWindowTo(IslandOverlay.xFor(w), y);
     }).catch((err: Error) => {
       hilog.warn(DOMAIN, TAG, 'detail resize failed: %{public}s', err.message);
     });
@@ -160,14 +164,32 @@ export class IslandOverlay {
     IslandOverlay.stopBackground();
   }
 
+  /** Read the camera cutout so the capsule hugs it; falls back to top-centre. */
+  private static async computePlacement(): Promise<void> {
+    const d: display.Display = display.getDefaultDisplaySync();
+    let cx: number = d.width / 2;
+    let topY: number = IslandOverlay.dp(6);
+    try {
+      const cut: display.CutoutInfo = await d.getCutoutInfo();
+      if (cut.boundingRects.length > 0) {
+        const r: display.Rect = cut.boundingRects[0];
+        cx = r.left + r.width / 2;
+        topY = Math.max(0, Math.round(r.top + r.height + IslandOverlay.dp(4)));
+      }
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'cutout unavailable: %{public}s', JSON.stringify(err));
+    }
+    IslandOverlay.camCx = cx;
+    IslandOverlay.topY = topY;
+  }
+
+  private static xFor(winW: number): number {
+    return Math.max(0, Math.round(IslandOverlay.camCx - winW / 2));
+  }
+
   private static dp(vp: number): number {
     const d: display.Display = display.getDefaultDisplaySync();
     return Math.round(vp * d.densityPixels);
-  }
-
-  private static centerX(winW: number): number {
-    const d: display.Display = display.getDefaultDisplaySync();
-    return Math.max(0, Math.round((d.width - winW) / 2));
   }
 
   // Keep the process responsive so the island still reacts while the app is backgrounded.

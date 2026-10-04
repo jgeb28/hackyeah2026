@@ -57,8 +57,8 @@ export class GuardianSchema {
     GuardianSchema.CATEGORY
   ];
 
-  /** Width of the padded option axis in the on-device graph output. */
-  static readonly MAX_OPTIONS: number = 5;
+  /** Width of the padded option axis in the on-device graph output (max options across questions: category=3). */
+  static readonly MAX_OPTIONS: number = 3;
 
   static indexOf(key: string): number {
     for (let i = 0; i < GuardianSchema.QUESTIONS.length; i++) {

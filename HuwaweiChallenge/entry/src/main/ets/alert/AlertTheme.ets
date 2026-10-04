@@ -46,16 +46,6 @@ export class AlertTheme {
     }
   }
 
-  static colorFor(verdict: Verdict): string {
-    if (verdict === Verdict.CRITICAL) {
-      return criticalColor;
-    }
-    if (verdict === Verdict.DANGEROUS) {
-      return warningColor;
-    }
-    return infoColor;
-  }
-
   static colorForSeverity(severity: string): string {
     if (severity === 'CRITICAL') {
       return criticalColor;
