@@ -31,6 +31,32 @@ export class IslandOverlay {
     return IslandOverlay.win !== null;
   }
 
+  /** Hide the island from captures (privacy mode); restore with reveal(). */
+  static async hide(): Promise<void> {
+    const win: window.Window | null = IslandOverlay.win;
+    if (win === null) {
+      return;
+    }
+    try {
+      await win.setWindowPrivacyMode(true);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'privacy on failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  /** Leave privacy mode after hide(). */
+  static async reveal(): Promise<void> {
+    const win: window.Window | null = IslandOverlay.win;
+    if (win === null) {
+      return;
+    }
+    try {
+      await win.setWindowPrivacyMode(false);
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'privacy off failed: %{public}s', JSON.stringify(err));
+    }
+  }
+
   /** Current floating-window rect in px, or null when the island is not shown. */
   static rectPx(): window.Rect | null {
     const win: window.Window | null = IslandOverlay.win;

@@ -1,6 +1,7 @@
 // Smart island: a small pill that expands; "Screenshot" scans the real screen for scams.
 import { IncidentKb, Incident } from '../alert/IncidentKb';
-import { ScreenScanner, ScanOutcome } from '../vision/ScreenScanner';
+import { SelectorOverlay } from '../alert/SelectorOverlay';
+import { ScreenScanner, ScanOutcome, ScanRegion } from '../vision/ScreenScanner';
 import { AlertTheme } from '../alert/AlertTheme';
 import { ScanResult, Verdict } from '../trigger/TriggerTypes';
 
@@ -15,6 +16,7 @@ export struct SmartIsland {
   @State title: string = 'Guardian';
   @State detail: string = '';
   @State color: string = IDLE_COLOR;
+  @State severity: string = '';
   /** KB incident JSON for the Details page; set when a scam is detected. */
   @State incidentJson: string = '';
   /** Called when the user closes the island for good (the small x). */
@@ -26,18 +28,22 @@ export struct SmartIsland {
 
   private scanner: ScreenScanner = new ScreenScanner();
   private scanToken: number = 0;
+  private resetTimer: number = -1;
 
   private setExpanded(value: boolean): void {
     this.expanded = value;
     this.onResize(value);
   }
 
-  /** Leading icon for the current phase (shield = neutral default). */
-  private static iconFor(phase: string): string {
+  /** Leading icon for the current phase/severity (shield = neutral default). */
+  private static iconFor(phase: string, severity: string): string {
     if (phase === 'safe' || phase === 'empty') {
       return '\u2713';
     }
-    if (phase === 'scam' || phase === 'error') {
+    if (phase === 'scam') {
+      return severity === 'CRITICAL' ? '🛑' : '\u26A0';
+    }
+    if (phase === 'error') {
       return '\u26A0';
     }
     return '🛡';
@@ -48,30 +54,62 @@ export struct SmartIsland {
     return phase === 'safe' || phase === 'scam' || phase === 'empty' || phase === 'error';
   }
 
+  /** Auto-dismiss a benign (safe / no-text) result back to the neutral pill. */
+  private scheduleAutoReset(): void {
+    this.clearAutoReset();
+    const token: number = this.scanToken;
+    this.resetTimer = setTimeout(() => {
+      this.resetTimer = -1;
+      if (token === this.scanToken) {
+        this.minimize();
+      }
+    }, 3500);
+  }
+
+  private clearAutoReset(): void {
+    if (this.resetTimer !== -1) {
+      clearTimeout(this.resetTimer);
+      this.resetTimer = -1;
+    }
+  }
+
   /** Close: back to the plain, neutral pill (the result is acknowledged). */
   private minimize(): void {
+    this.clearAutoReset();
     this.scanToken++;
     this.phase = 'idle';
     this.title = 'Guardian';
     this.detail = '';
     this.incidentJson = '';
     this.color = IDLE_COLOR;
+    this.severity = '';
     this.setExpanded(false);
   }
 
-  private async scan(): Promise<void> {
+  /** Open the region selector; on confirm, scan only the chosen area. */
+  private async selectArea(): Promise<void> {
+    this.clearAutoReset();
+    await SelectorOverlay.show((x: number, y: number, w: number, h: number) => {
+      const region: ScanRegion = { x: x, y: y, width: w, height: h };
+      this.scan(region);
+    });
+  }
+
+  private async scan(region: ScanRegion | null): Promise<void> {
     if (this.phase === 'scanning') {
       return;
     }
+    this.clearAutoReset();
     this.setExpanded(true);
     this.phase = 'scanning';
     this.title = 'Scanning the screen...';
     this.detail = '';
     this.incidentJson = '';
     this.color = IDLE_COLOR;
+    this.severity = '';
     const token: number = ++this.scanToken;
 
-    const outcome: ScanOutcome = await this.scanner.scanOnce();
+    const outcome: ScanOutcome = await this.scanner.scanOnce(region ?? undefined);
     if (token !== this.scanToken) {
       // The user closed the island while scanning; drop the result.
       return;
@@ -84,7 +122,7 @@ export struct SmartIsland {
       this.detail = outcome.error;
     } else if (outcome.text.length === 0) {
       this.phase = 'empty';
-      this.color = SAFE_COLOR;
+      this.color = IDLE_COLOR;
       this.title = 'No text found';
       this.detail = 'The captured screen contained no readable text.';
     } else {
@@ -100,11 +138,13 @@ export struct SmartIsland {
         if (incident !== null) {
           // UI severity comes from the incident (DESIGN §18), not the raw verdict.
           this.color = AlertTheme.colorForSeverity(incident.severity);
+          this.severity = incident.severity;
           this.title = incident.title;
           this.detail = `${incident.explanation} ${incident.remediation.join(' ')}`;
           this.incidentJson = JSON.stringify(incident);
         } else {
           this.color = AlertTheme.colorForSeverity(result.severity ?? 'WARNING');
+          this.severity = result.severity ?? 'WARNING';
           this.title = AlertTheme.titleForCategory(result.category);
           this.detail = '';
           this.incidentJson = '';
@@ -113,12 +153,15 @@ export struct SmartIsland {
     }
     // Show the result as a coloured pill; the user taps it to expand the card.
     this.setExpanded(false);
+    if (this.phase === 'safe' || this.phase === 'empty') {
+      this.scheduleAutoReset();
+    }
   }
 
   @Builder
   pill() {
     Row({ space: 6 }) {
-      Text('🛡')
+      Text(SmartIsland.iconFor(this.phase, this.severity))
         .fontSize(13)
         .fontColor(Color.White)
       Text(SmartIsland.isResult(this.phase) ? this.title : 'Guardian')
@@ -149,7 +192,7 @@ export struct SmartIsland {
   card() {
     Column({ space: 8 }) {
       Row({ space: 8 }) {
-        Text(SmartIsland.iconFor(this.phase))
+        Text(SmartIsland.iconFor(this.phase, this.severity))
           .fontSize(14)
           .fontColor(Color.White)
         Text(this.title)
@@ -190,15 +233,15 @@ export struct SmartIsland {
               this.onDetails(this.incidentJson);
             })
         } else {
-          Button('Screenshot')
+          Button('Select area')
             .fontSize(11)
             .height(30)
             .layoutWeight(1)
             .backgroundColor(Color.White)
-            .fontColor(this.phase === 'idle' ? IDLE_COLOR : this.color)
+            .fontColor(IDLE_COLOR)
             .enabled(this.phase !== 'scanning')
             .onClick(() => {
-              this.scan();
+              this.selectArea();
             })
         }
         Button('Close')

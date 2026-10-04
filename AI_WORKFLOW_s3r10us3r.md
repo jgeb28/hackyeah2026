@@ -9,6 +9,61 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 03:58:37
+**Developer:** s3r10us3r
+
+**Task:** CRITICAL stop sign + hide island during capture; neutral "no text"; auto-reset benign results. **Not committed/pushed (awaiting developer validation).**
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Stop sign:** `SmartIsland` tracks `severity`; `iconFor(phase, severity)` returns **🛑** for a CRITICAL scam (⚠ for other scam/error, ✓ safe, 🛡 idle). Used on both the card and the pill.
+* **Hide during capture:** `Window.hide()` does not exist in this SDK → used `win.setWindowPrivacyMode(true)` around `screenshot.capture()` and `false` after (`IslandOverlay.hide()/reveal()`).
+* **Neutral "no text":** empty-result colour changed `SAFE_COLOR` → `IDLE_COLOR`.
+* **Auto-reset:** safe/`empty` results schedule a 3.5 s timer (`scheduleAutoReset`, token-guarded) that returns the island to the neutral default; cleared on new scan/select/minimize.
+* **Key Prompts:** "on critical, change the emoji to a stop sign. Hide the pill during capture."; "keep its neutral color when no text detected"; "on safe or no text detected it should come back to its default state after a few seconds".
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed + relaunched. (Developer to test the UI.)
+
+#### 4. Review & Validation
+* **Human Oversight:** developer testing the UI.
+* **Security Checks:** UI-only; no new permissions/secrets.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** `setWindowPrivacyMode` is a substitute for hiding — unverified whether it excludes our own `screenshot.capture()`; if the pill still appears in a scan, switch to resize/move-offscreen.
+* **Lessons Learned:** OpenHarmony `Window` has `show/showWindow` but no `hide`; use privacy mode or resize.
+
+---
+## Update: 2026-10-04 03:50:46
+**Developer:** s3r10us3r
+
+**Task:** region-select capture — scan only the part of the screen the user picks (drag a box). **Not committed/pushed (awaiting developer validation).**
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash` (DeepSeek V4.1 Flash).
+* **MCP Servers & Skills:** none. Emulator driven via `uitest uiInput swipe/click`, screenshots via `snapshot_display`, layout via `uitest dumpLayout`.
+
+#### 3. Development Workflow & Prompts
+* **Design:** capture the full display, then **crop** to the user's rectangle (`PixelMap.crop`), and OCR only that crop (faster, no chrome). Selector is a full-screen `TYPE_FLOAT` window (`SelectorOverlay`) hosting `pages/SelectArea`.
+* **Implementation:**
+  - `alert/SelectorOverlay.ets` (new): full-screen window; on confirm it **destroys the window, waits 300 ms**, then calls back with the vp rect (so the overlay isn't in the capture and the display service has settled).
+  - `pages/SelectArea.ets` (new): **press-and-drag** to draw the box (`onTouch` Down/Move/Up), hint + Scan/Cancel; registered in `main_pages.json`.
+  - `vision/ScreenScanner.ets`: `scanOnce(region?)`; `cropToRegion` (vp→px via `densityPixels`, clamped); `captureWithRetry` (retries 1400003 once).
+  - `components/SmartIsland.ets`: idle primary button → **Select area** → `SelectorOverlay.show` → scan the region.
+  - `EntryAbility`: `SelectorOverlay.setContext`.
+* **Key Prompts:** "let user choose the screenshot … tap the screen at a left right corner … capturing only desired part"; "id rather the user swiped instead of choosing opposite points".
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed. First attempt: capture failed with **1400003** right after destroying the selector → fixed with a 300 ms settle delay (+ one capture retry). Validated: `SelectorOverlay: selector shown 1320x2856`; drag draws a box; `GuardianScanner: cropped to 200,700 946x418` then OCR ran (`scan text=0` on a blank region).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to validate the swipe interaction before commit/push.
+* **Security Checks:** no secrets; no new permissions.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** after `destroyWindow`, `screenshot.capture()` can transiently fail (1400003) — insert a short delay and retry. The selector is full-screen and covers the status bar area; region coordinates map directly to display px via `densityPixels`.
+* **Limitations:** the island window is not hidden during capture, so a selection overlapping it would include it; the system capture indicator still flashes (third-party).
+
+---
 ## Update: 2026-10-04 03:33:22
 **Developer:** s3r10us3r
 
@@ -100,6 +155,39 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 
 #### 5. Limitations & Lessons Learned
 * **Limitations:** guessed the target surfaces (island + detail page); border colour/target may need tuning. The likely root cause is the window being sized to the content so the card's `.shadow()` is clipped at the window edge — a border hides it, but insetting the content or dropping the shadow might be cleaner.
+
+---
+## Update: 2026-10-04 03:56:20
+**Developer:** s3r10us3r
+
+**Task:** evaluate the fine-tune (epoch-0 checkpoint) on the held-out test set.
+
+#### 1. AI Features
+* **Model/Service:** fine-tuned LAY A (2-question deception schema); checkpoint
+  `C:\guardian-finetune\out\best_model.safetensors`.
+* **Inference Flow:** on-device/offline; test-set eval via new `eval_test.py` (CPU,
+  to avoid GPU contention with the still-running training).
+* **Limitations & Validation:** **`test.jsonl` (separate set, 0 n-gram overlap):
+  2000 rows → AUC 0.944, acc 0.871, best bal_acc 0.875 @ t=0.82, category_acc
+  0.882.** External 100-case battery: **AUC 0.990 @ t=0.22, TPR 0.933 / FPR 0.000**
+  (stock 0.844). The train-val split's AUC 0.999 is **inflated by template
+  overlap** — ignore it. Model is overconfident (best t 0.82) → calibrate on a
+  non-leaky split.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode `deepseek/deepseek-flash`.
+* **Configuration:** uv devserver; `eval_test.py` (outside repo).
+
+#### 3. Development Workflow & Prompts
+* **Key Prompts:** "Check the fine-tuning status"; "test the model against testing
+  data NOW".
+* **Testing & Debugging:** flagged the leaky val split (0.999) and added a direct
+  `test.jsonl` evaluation.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** a same-generator val split badly overstates quality
+  (0.999 vs 0.944); always evaluate on the separate test set; fit calibration on a
+  non-leaky split.
 
 ---
 ## Update: 2026-10-04 03:18:15
