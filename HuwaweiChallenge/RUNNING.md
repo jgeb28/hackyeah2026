@@ -1,53 +1,49 @@
 # Guardian — running & testing
 
-Guardian is a **Smart Island**. Collapsed it is a small pill; tap it to expand, then
-press **Screenshot** to capture the screen and check it for scams. The verdict appears
-in the island: green "Looks safe" (then it collapses by itself) or a red/orange warning
-with the text. The small **x** turns the island off.
+Guardian is a **camera-anchored Smart Island**. A floating pill sits just under the
+front-camera cutout; tap it to expand, tap **Select area**, then drag a box around
+the text to check. Guardian screenshots the screen, **crops to your box**, runs
+on-device OCR + a local classifier, and shows the verdict in the island: green
+"Looks safe" (it resets itself after a few seconds) or a red/orange warning with the
+incident title. The small **x** turns the island off.
 
 ## Island behaviour
 
-The island runs **only as a floating window** — there is no in-app island. The control
-screen has one button: **Show floating island** / **Hide floating island**.
+The island runs **only as a floating window** (`TYPE_FLOAT`); there is no in-app
+island. The control screen (`Index`) has one button: **Guard** / **Stop guarding**.
 
-- **Collapsed** — small, always-neutral dark pill (`Guardian`); tap it to expand.
-- **Expanded** — `Screenshot` and `Close` buttons, plus the small `x` in the corner.
-- **Safe** — turns **green** and shows "Looks safe"; it stays until you press `Close`.
-- **Scam** — turns **red/orange** and shows the warning text; it stays until you press `Close`.
-- **Close** — collapses the island back to the plain neutral pill (status colour cleared).
-- **x** — turns the island off (destroys the floating window and its background task).
+- **Collapsed** — a small pill just under the camera cutout (`🛡 Guardian ✕`). Tap to
+  expand.
+- **Expanded** — shows the action (`Select area`, or `Details` on a scam) and `Close`.
+- **Result** — the pill takes the incident's severity colour (red CRITICAL / orange
+  WARNING / green SAFE); a CRITICAL result shows a 🛑 icon. Safe / no-text results
+  auto-reset to the neutral pill after a few seconds. `Close` also resets to neutral.
+- **x** — destroys the floating window and its background task.
 
-The island never closes on its own: the only ways out are `Close` (back to the neutral
-pill) and `x` (off).
+The window is positioned from `display.getCutoutInfo()` (centred on the camera,
+top edge just below the cutout), so it adapts to the device's cutout.
 
-## How the scan works
+## How a scan works
 
-Tap **Screenshot** → request `ohos.permission.CUSTOM_SCREEN_CAPTURE` (first time) →
-`screenshot.capture()` (whole display) → on-device OCR (`@kit.CoreVisionKit`) →
-split into lines → classify **by text length** → keep the most severe → show it.
-The captured `PixelMap` is released right after OCR; the image is never kept.
+Tap the pill → **Select area** → a full-screen dim overlay (`SelectorOverlay` /
+`pages/SelectArea`) appears → **drag a box** around the text → **Scan this area**.
+Guardian then: `screenshot.capture()` (whole display) → **crop to the box**
+(`PixelMap.crop`, vp→px) → **on-device PP-OCRv4** (`ets/ocr/`) → **classify**
+(`vision/LayaClassifier` → LAYA) → map the category to an **incident**
+(`alert/IncidentKb.forText`, keyword-matched) → show it. The captured `PixelMap` is
+released right after OCR; the image is never kept. The island is hidden from the
+capture (`setWindowPrivacyMode`).
 
-The island runs as a **floating window** (`TYPE_FLOAT`, `pages/FloatingIsland`) on top of
-other apps. The window resizes between a small pill and the expanded card so it blocks as
-little of the screen as possible, and starts a `dataTransfer` continuous task while
-visible so the process stays responsive.
-
-Length thresholds (placeholder until the validation model):
-`< 50` → SAFE, `50–99` → WARNING (`misinformation`), `>= 100` → CRITICAL (`scam`).
+**Details** opens `pages/IncidentDetail` **inside the island window** (a background
+app may not start an ability): it renders the incident JSON — *What this is / Why it
+matters / What to do*.
 
 ## On-device OCR — emulator limitation
 
-**Core Vision Kit OCR is not available on emulators** — Huawei states it explicitly
-("This capability is currently not supported on emulators"), and on the emulator
-`textRecognition` is `undefined` (`GuardianOcr: ocr failed ... Cannot read property
-init of undefined`). There is no other public OCR library in the SDK that runs on the
-emulator (MindSpore Lite is available but needs a `.ms` model; the device-side models
-target Arm/Kirin, and the emulator is x86_64).
-
-**Demo behaviour without OCR:** when OCR returns no text, the scanner picks a **random**
-built-in sample (a safe or a scam message) so both island states can be shown. The island
-labels it `(sample: scam)` / `(sample: safe)`. On a real HarmonyOS phone OCR returns text
-and this substitution never happens.
+HarmonyOS Core Vision Kit OCR is not available on emulators, so Guardian ships its
+own **PP-OCRv4** models (det + rec) converted to MindSpore Lite and run via
+`@kit.MindSporeLiteKit`; this works on the emulator (CPU). LAYA runs the same way
+(`entry/src/main/resources/rawfile/*.ms`, git-ignored — provision separately).
 
 ## Prerequisites
 
@@ -58,8 +54,8 @@ and this substitution never happens.
   `KEEP_BACKGROUND_RUNNING`; `EntryAbility` declares `backgroundModes: ["dataTransfer"]`.
 
 ```powershell
-$DEVECO = "D:\Huawei\DevEco Studio"
-$PROJ   = "D:\Hackathon\HackYeah\hackyeah2026\HuwaweiChallenge"
+$DEVECO = "<DevEco Studio>"                 # e.g. C:\Program Files\Huawei\DevEco Studio
+$PROJ   = "<repo>\HuwaweiChallenge"
 $HDC    = "$DEVECO\sdk\default\openharmony\toolchains\hdc.exe"
 $TARGET = "127.0.0.1:5555"
 ```
@@ -67,8 +63,12 @@ $TARGET = "127.0.0.1:5555"
 ## 1. Build
 
 ```powershell
-Set-Location $PROJ; $env:DEVECO_SDK_HOME="$DEVECO\sdk"; & "$DEVECO\tools\node\node.exe" "$DEVECO\tools\hvigor\bin\hvigorw.js" --mode module -p module=entry@default -p product=default -p requiredDeviceType=phone assembleHap --analyze=normal --parallel --incremental --no-daemon
+Set-Location $PROJ; $env:DEVECO_SDK_HOME="$DEVECO\sdk"; `
+& "$DEVECO\tools\node\node.exe" "$DEVECO\tools\hvigor\bin\hvigorw.js" --mode module -p module=entry@default -p product=default -p requiredDeviceType=phone assembleHap --analyze=normal --parallel --incremental --no-daemon
 ```
+
+> Build with **JDK 17** on `PATH` (the package step shells out to `java`). Build from
+> the project's canonical-cased path (hvigor rejects a path whose real case differs).
 
 ## 2. Install
 
@@ -82,40 +82,41 @@ Set-Location $PROJ; $env:DEVECO_SDK_HOME="$DEVECO\sdk"; & "$DEVECO\tools\node\no
 & $HDC -t $TARGET shell aa start -a EntryAbility -b com.example.huwaweichallenge
 ```
 
-On the app screen: tap the island, then **Screenshot**. Use **Show floating island** to
-keep the island on top of other apps; open a message or a web page and use it to scan.
+On the app screen tap **Guard** (shows the floating pill). Open any app, tap the pill,
+**Select area**, drag a box, **Scan this area**.
 
 ## 4. Live logs
 
 ```powershell
-& $HDC -t $TARGET shell "hilog -T GuardianIsland,GuardianIslandWin,GuardianScanner,GuardianOcr,CONTINUOUS_TASK -v color"
+& $HDC -t $TARGET shell "hilog -T GuardianIslandWin,GuardianScanner,GuardianOcr,GuardianSelector,GuardianTrigger -v color"
 ```
 
-Expected on tap:
+Expected on a scan:
 
 ```
-GuardianIslandWin: island window shown        (floating island only)
-GuardianScanner: scan text=<n> sample=<none|scam|safe>
-GuardianOcr: ocr failed ...                   (emulator: Core Vision not available)
+GuardianIslandWin: island shown at x=... y=...
+GuardianSelector: selector shown 1320x2856
+GuardianScanner: cropped to <x>,<y> <w>x<h>
+GuardianOcr: models loaded … / detect N boxes / recognized N lines
+GuardianScanner: scan text=<n> error=
 ```
 
 ## Files this feature touches
 
-New: `entry/src/main/ets/vision/ScreenScanner.ets`, `entry/src/main/ets/vision/OcrEngine.ets`,
-`entry/src/main/ets/vision/ScreenClassifier.ets`, `entry/src/main/ets/components/SmartIsland.ets`,
-`entry/src/main/ets/alert/IslandOverlay.ets`, `entry/src/main/ets/pages/FloatingIsland.ets`.
-Changed: `entry/src/main/ets/pages/Index.ets`, `entry/src/main/ets/entryability/EntryAbility.ets`,
-`entry/src/main/resources/base/profile/main_pages.json`, `entry/src/main/module.json5`.
-Removed: `entry/src/main/ets/vision/VisionScanLoop.ets`.
+Core: `entry/src/main/ets/alert/IslandOverlay.ets`, `alert/SelectorOverlay.ets`,
+`pages/FloatingIsland.ets`, `pages/SelectArea.ets`, `pages/IncidentDetail.ets`,
+`components/SmartIsland.ets`, `components/IncidentDetailView.ets`,
+`vision/ScreenScanner.ets`, `vision/LayaClassifier.ets`, `alert/IncidentKb.ets`,
+`alert/NotificationService.ets`, `alert/AlertTheme.ets`, `entryability/EntryAbility.ets`,
+`pages/Index.ets`, `module.json5`, `resources/base/profile/main_pages.json`.
 
 ## Limitations
 
-- **OCR does not work on the emulator** (see above); the sample fallback is used instead.
+- **Emulator CPU-only** (no NPU); LAYA inference is slow — the app has a dev "Dev mode"
+  switch that routes OCR/LAY A to a host server (`C:\guardian-devserver`) for fast
+  iteration. **Dev-only**; the shipping build is on-device/offline.
 - A third-party app **cannot capture silently**: `screenshot.capture()` shows the system
-  capture indicator. That is expected — the user triggers each scan.
-- The floating window captures the whole display, including its own text; the classifier
-  keeps the most severe line.
-- The floating window still occupies a small rectangle at the top and blocks touches
-  there (a `TYPE_FLOAT` behaviour).
-- **Classification is length-based (a placeholder)** until the validation model is added
-  in `ScreenClassifier.classifyOne()`.
+  capture indicator. The user triggers each scan.
+- The camera-cutout band **is not touch-sensitive** to our window; controls live below
+  it.
+- Classification depends on the bundled LAYA model; misinformation is weaker than scam.

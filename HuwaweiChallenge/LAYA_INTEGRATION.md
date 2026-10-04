@@ -1,9 +1,10 @@
 # Laya integration (Guardian) — on-device, offline
 
-Guardian runs the Laya decision model **entirely on the device**. There is no
-network backend and **no `ohos.permission.INTERNET`** in the app. This document
-covers the architecture, the on-device model contract, OS acceleration, and
-quantisation.
+Guardian runs the Laya decision model **entirely on the device**. The shipping
+product is offline and declares **no `ohos.permission.INTERNET`**. There is a
+**dev-only** "Dev mode" switch (see `dev/`) that routes OCR and LAY A to a host
+server for fast iteration; it declares `INTERNET` in `module.json5` and must be
+removed before the submission build.
 
 Model: [`convaiinnovations/laya`](https://huggingface.co/convaiinnovations/laya) —
 non-autoregressive "System 1" decision model (ModernBERT-large + a custom RL
@@ -18,38 +19,47 @@ entry/src/main/ets/
     model/Decision.ets                 # LayaRequest/Response, Verdict, MessageAnalysis
     model/GuardianSchema.ets           # label space, shared by request + graph decode
     repository/DecisionRepository.ets  # port: predict(request) -> response
-    usecase/AnalyseMessageUseCase.ets  # builds questions, maps risk -> verdict
+    usecase/AnalyseMessageUseCase.ets  # builds questions, maps the gate -> verdict
   data/                                # adapters — the only place that knows "how"
-    config/InferenceConfig.ets         # artefacts, NPU, threads, quantisation
-    assets/AssetLoader.ets             # reads rawfile (model fd, tokenizer text)
+    config/InferenceConfig.ets         # artefact, NPU, threads, quantisation
+    assets/AssetLoader.ets             # reads rawfile (model path, tokenizer text)
     datasource/BpeTokenizer.ets        # on-device ByteLevel BPE tokenizer
     datasource/MindSporeLiteEngine.ets # local inference + NPU/CPU context
     datasource/NnrtAccelerationProbe.ets
+    datasource/LayaEngineClient.ets    # UI-thread client for the model worker
     repository/DecisionRepositoryImpl.ets    # on-device engine
   di/AppContainer.ets                  # composition root
-  presentation/components/AnswerPopup.ets
-  pages/Index.ets                      # question; tap -> analyse -> popup
+  vision/LayaClassifier.ets            # Laya -> Guardian ScanResult (island scan path)
+  pages/Index.ets                      # Guard control screen
+  workers/LayaWorker.ets               # loads the .ms and runs predict off the UI thread
 ```
 
-Dependency rule: `presentation → domain ← data`. The page only sees
-`AnalyseMessageUseCase`; it never imports MindSpore or any transport.
+Dependency rule: `vision/UI → domain ← data`. The scanner and UI only see
+`AnalyseMessageUseCase`; they never import MindSpore or any transport.
 
-## Inference flow (all on-device)
+> The `data/datasource/Remote*` adapters + `dev/BackendFactory` are the dev-only
+> remote path selected by "Dev mode" (`BackendSettings`); they mirror this interface.
 
-1. User taps the question on `Index`.
-2. `AnalyseMessageUseCase.run(message)` builds the three typed questions from
-   `GuardianSchema` (`risk` noul, `category` choice, `urgency` score).
-3. `DecisionRepositoryImpl` calls `MindSporeLiteEngine.infer`:
-   `BpeTokenizer` → build `input_ids`/`attention_mask` `[Q, 512]` (prefix + state +
-   `[SEP]` + pad, from `laya_guardian_meta.json`) → `model.predict` →
-   `[1, Q, MAX_OPTIONS]` logits → softmax per question → `LayaResponse`.
-4. The use case maps the **category** distribution (P(scam)+P(harassment)) to
-   `SAFE`/`DANGEROUS`/`CRITICAL` (the base `noul` head is unreliable).
-5. `AnswerPopup` shows the verdict, answers and probability breakdowns.
+## Inference flow (all on-device by default)
 
-**Privacy:** the message text is read from the screen and processed in memory.
-Nothing is transmitted; the only storage is the optional local detection log
-(DESIGN.md §10).
+1. The user scans a screen region; `vision/ScreenScanner` captures it and runs OCR.
+2. `vision/LayaClassifier` calls `AnalyseMessageUseCase.run(text)`.
+3. `AnalyseMessageUseCase` builds **two** typed questions from `GuardianSchema`:
+   `deception` (choice: `safe` / `deceptive`) and `category` (choice: `scam` /
+   `misinformation` / `harassment`).
+4. `DecisionRepositoryImpl` calls `MindSporeLiteEngine.infer`: `BpeTokenizer` →
+   `input_ids`/`attention_mask` `[Q, max_len]` (prefix + state + `[SEP]` + pad, from
+   `laya_guardian_meta.json`) → worker-hosted `model.predict` → `[1, Q, MAX_OPTIONS]`
+   logits → per-question softmax → `LayaResponse`.
+5. The use case maps `P(deceptive)` to `SAFE`/`DANGEROUS`/`CRITICAL`
+   (`DECEPTIVE_DANGEROUS = 0.30`, `DECEPTIVE_CRITICAL = 0.50` in
+   `AnalyseMessageUseCase`); `category` selects which incident to show.
+6. `vision/LayaClassifier` maps the analysis to a Guardian `ScanResult`; the island
+   picks the matching KB incident (`alert/IncidentKb.forText`) and shows its title /
+   explanation / next steps (or opens `pages/IncidentDetail`).
+
+**Privacy:** the text is read from the screen and processed in memory. Nothing is
+transmitted; the only storage is the optional local detection log (DESIGN.md §10).
 
 ## On-device model contract (what the `.ms` must expose)
 
@@ -58,15 +68,20 @@ The graph is exported with Guardian's fixed label space baked in (see
 
 | Tensor | Type | Shape | Meaning |
 | --- | --- | --- | --- |
-| `input_ids` | int32 | `[Q, 512]` | one full Laya sequence per question |
-| `attention_mask` | int32 | `[Q, 512]` | 1 for real tokens, 0 for pad |
+| `input_ids` | int32 | `[Q, max_len]` | one full Laya sequence per question |
+| `attention_mask` | int32 | `[Q, max_len]` | 1 for real tokens, 0 for pad |
 | `logits` | fp32 | `[1, Q, MAX_OPTIONS]` | per-question score per option (temperature-scaled) |
 
-`Q = 3` (risk, category, urgency) and `MAX_OPTIONS = 5`. The instructions, option
-markers, head budget and temperatures are **baked into the graph** by the converter
-(`~/tmp/convert_laya.py`). The per-question **prefixes** (token ids) are exported to
-`laya_guardian_meta.json`, and the app builds each sequence as
-`prefix + state + [SEP] + pad` — matching Laya's `build_sequence` exactly.
+`Q = 2` (deception, category) and `MAX_OPTIONS = 3` (`GuardianSchema.MAX_OPTIONS`);
+`max_len` is read from `laya_guardian_meta.json` (256 for the shipped w8/s256 graph).
+The instructions, option markers, head budget and temperatures are **baked into the
+graph** by the converter (`tools/laya/convert_laya.py`). The per-question
+**prefixes** (token ids) are exported to `laya_guardian_meta.json`, and the app
+builds each sequence as `prefix + state + [SEP] + pad` — matching Laya's
+`build_sequence` exactly.
+
+> Changing `GuardianSchema` (questions/labels/`MAX_OPTIONS`) requires **re-exporting
+> the on-device `.ms`** so the graph matches (root AGENTS.md §11).
 
 ## Tokenizer — ByteLevel BPE, ported on-device
 
@@ -77,54 +92,40 @@ leave the device, `BpeTokenizer.ets` reproduces it in ArkTS: byte→unicode map,
 the GPT-2 pre-tokenizer regex, greedy merge by merge-rank, then a vocab lookup.
 The same `tokenizer.json` is bundled in `rawfile/`.
 
-> **Status:** the ArkTS BPE algorithm was validated against Hugging Face's
-> `AutoTokenizer` via a Python reimplementation — **identical token ids on all 5
-> sample messages**. (Note: `merges` in `tokenizer.json` are `["a","b"]` arrays, not
-> strings.) The one thing not testable here is ArkTS's own regex support for `\p{L}`
-> at runtime.
-
 ## Is inference accelerated by the OS? — Yes
 
 OpenHarmony/HarmonyOS ship **MindSpore Lite** (`@kit.MindSporeLiteKit`), which
 can dispatch to **Neural Network Runtime (NNRt)** — the NPU on Kirin devices.
-`MindSporeLiteEngine.buildContext()` sets:
-
-```ts
-context.target = ['nnrt', 'cpu'];   // prefer NPU, fall back to CPU
-context.nnrt   = {};
-context.cpu.precisionMode = 'preferred_fp16';
-```
-
-`NnrtAccelerationProbe` calls `mindSporeLite.getAllNNRTDeviceDescriptions()` and
-the UI states the real backend. The Oniro/OpenHarmony **emulator is CPU-only**
-(no accelerator); a Kirin phone reports the NPU.
+`MindSporeLiteEngine.buildContext()` prefers NNRt and falls back to CPU, and
+`NnrtAccelerationProbe` reports the real backend. The **emulator is CPU-only**
+(no accelerator); a Kirin phone reports the NPU (`config.useNpu` is set from the
+probe).
 
 ## Quantisation — configurable, offline
 
 Quantisation happens once, at export, with the MindSpore Lite converter — not at
 runtime. `InferenceConfig.quantization` records the artefact choice:
 
-| dtype | ~size (421M params) | use |
+| dtype | ~size | notes |
 | --- | --- | --- |
-| **`fp32` (shipped)** | **~1.69 GB** | validated correct (`laya_guardian_fp32.ms`); large |
-| `fp16` | ~0.84 GB | produces NaN under `converter_lite --fp16=on` (open issue) |
-| `int8` | ~0.42 GB | not yet tried; needs accuracy check |
+| **`w8` (shipped)** | **~412 MB** | weight-only int8, seq 256 (`laya_en_w8_s256.ms`); runs on the x86 emulator, 3.8× faster than fp32 s512 |
+| `fp32` | ~1.69 GB | validated correct (s512); too big to swap-fit a 4 GB guest |
+| `dyn8` | ~0.4 GB | **crashes** in MindSpore Lite's x86 int8 gather kernel — unusable |
 
-Runtime CPU thread count is configurable (`enforce_fp32` used for the shipped fp32
-model to reproduce the validated results).
+Runtime CPU thread count is configurable. Quantisation + a shorter sequence change
+the verdict, so diff decisions against the validated fp32 graph before trusting a
+new artefact.
 
 ## Assets to bundle (`entry/src/main/resources/rawfile/`)
 
 | File | Source | Notes |
 | --- | --- | --- |
 | `tokenizer.json` | `convaiinnovations/laya/tokenizer/tokenizer.json` | copy verbatim |
-| `laya_guardian_meta.json` | converter output | prefixes, SEP/PAD ids, max_len |
-| `laya_guardian_fp32.ms` | converter output (1.69 GB) | validated fp32 graph, contract above |
+| `laya_guardian_meta.json` | converter output | prefixes, SEP/PAD ids, `max_len` |
+| `laya_en_w8_s256.ms` | converter output | shipped graph, contract above |
 
 The `.ms`/`.onnx`/`.mindir` files are **git-ignored** (too large); build them with
-`~/tmp/convert_laya.py` — see `LAYA_ONDEVICE_RESEARCH.md` for the full pipeline.
-The conversion is at `CONVERT RESULT SUCCESS:0`, and the fp32 `.ms` matches the
-reference `RLAgent` (max prob diff 2.5e-3).
+`tools/laya/convert_laya.py` (Linux `converter_lite`).
 
 ## Fallback — none (by design)
 
@@ -135,5 +136,7 @@ and the UI reports that the on-device model is unavailable.
 
 ## Build
 
-Open `HuwaweiChallenge` in DevEco Studio (API 20+, compileSdk 23) and run on the
-emulator/device. No permissions are required — the app is offline by design.
+Open `HuwaweiChallenge` in DevEco Studio (API 20+) and run on the emulator/device.
+Permissions: `CUSTOM_SCREEN_CAPTURE`, `SYSTEM_FLOAT_WINDOW`,
+`KEEP_BACKGROUND_RUNNING`; the dev-only `INTERNET` (Dev mode) must be removed for
+the shipping build.
