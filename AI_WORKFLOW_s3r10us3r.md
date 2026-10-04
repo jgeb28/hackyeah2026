@@ -9,6 +9,68 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 05:45:13
+**Developer:** s3r10us3r
+
+**Task:** trim/merge the incident KB (10 → 9). **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Removed** `romance-scam`.
+* **Merged** `gift-card-utility-threat` into `bank-authority-impersonation` (both are "a fake authority pressures you to verify/pay now") — broadened its description/keywords/signals/remediation to cover link + gift card + crypto.
+* **Added** `hate-abuse` (harassment, CRITICAL): hostile/abusive messages including telling you to harm yourself, with a wellbeing-aware L0 message.
+* **Result: 9 incidents.** Escalation: L0 ×7, L1 ×1 (`investment-guaranteed-returns`), L2 ×1 (`misinfo-breaking-event`).
+* **Key Prompts:** "ok, remove romance-scam. Which can be merged? Maybe we can add like someone hating (like generic kill yourself)?"
+* **Testing & Debugging:** updated the KB tests (count 10 → 9); `assembleHap` BUILD SUCCESSFUL; **31/31** unit tests (shortened a description that tripped the ≤16-word bound); installed + relaunched. `DESIGN.md` §18.4 table updated.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review the merged/added incidents.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Note:** with the deception gate back, these 9 are the incident-question options; 3 non-L0 cases (misinfo L2, investment L1) are the "Describe"-eligible set.
+* **Lessons Learned:** merging an authority scam is fine because the remediation is the same ("contact them via the official number; don't pay via the message"), unlike e.g. family-emergency vs investment.
+
+---
+## Update: 2026-10-04 05:39:03
+**Developer:** s3r10us3r
+
+**Task:** model provisioning for reproducibility (zip vs host-and-fetch). **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Measured zip:** gzip of the 412 MB `.ms` compresses to **~382 MB (ratio 0.93)** → still over GitHub's 100 MB file limit, so committing a zip does not work.
+* **Decision:** host the `.ms` once (Hugging Face **or** a GitHub Release ≤ 2 GB) and fetch it at setup time.
+* **Added `tools/fetch_model.py`** (stdlib `urllib` only): streams to a `.part`, verifies the `MSL2` magic + size, optional `--gz`; URL via `--url` or `GUARDIAN_MODEL_URL`. Documented both hosting routes (HF `huggingface-cli upload`; `gh release create`) in the README.
+* **Key Prompts:** "Think we could zip the classifier and unzip it on build or something? Or add it to hugging face and pull it from there?"
+* **Testing & Debugging:** `python tools/fetch_model.py --help` runs clean.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to publish the model (HF or Release) and set the URL.
+* **Security Checks:** the fetch takes a public URL; no keys. HF upload needs the owner's token (out of band).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** int8 weight files barely compress, so zip can't beat the 100 MB limit — host-and-fetch (or Git LFS) is the way. Runtime download was rejected (it would break the offline-by-default claim); fetching at setup keeps the HAP offline.
+
+---
+## Update: 2026-10-04 05:35:12
+**Developer:** s3r10us3r
+
+**Task:** reproducibility hardening (challenge deliverable) + note the DeepSeek key plan. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Audit:** confirmed the small assets **are** tracked (`rawfile/ocr/*.ms`, `ppocr_keys_v1.txt`, `sample.png`, `tokenizer.json`, `laya_guardian_meta.json`, `kb/en/incidents.json`); the only uncommitted asset is the **412 MB LAY A `.ms`** (over GitHub's 100 MB limit).
+* **Wrote a real root `README.md`** (was empty): what it does, repo layout, requirements (DevEco 6.1.1(24), JDK 17, Node ≥ 20), the canonical-case build gotcha, asset provisioning (release asset **or** `tools/laya/convert_laya.py`), build/install/launch, tests, the **optional dev-only backend** (remote OCR/LAY A + DeepSeek `/describe`), and security notes.
+* **Keys:** documented the decision — the **DeepSeek key is a server-side env var** (`DEEPSEEK_API_KEY`) on the backend, never in the repo/app; the app calls `/describe`. Added `.env`/`*.key`/`secrets*` to `.gitignore`; secret scan clean.
+* **Key Prompts:** "What do you mean env var on a dev server? What if we try to run it on the huawei device?"; "These are the requirements. We need reproducability."
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review; LAY A `.ms` still to be published (release asset or built).
+* **Security Checks:** repo-wide secret scan clean; no keys; `.env` ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Reproducibility gap:** a fresh clone builds/runs and degrades gracefully, but the on-device classifier needs the LAY A `.ms` provisioned (release asset or converter). Capture/OCR work out of the box.
+* **Lesson:** keep the key server-side; `hdc rport` reaches the dev backend from both the emulator and a tethered real device, so the same app works on hardware for the demo.
+
+---
 ## Update: 2026-10-04 05:22:34
 **Developer:** s3r10us3r
 

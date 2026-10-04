@@ -845,23 +845,23 @@ message carries the case's `cta`, and only a tap escalates.
 - **L2 "Check this claim"** needs explicit consent and a **grounded** cloud lookup
   that returns cited `sources` (never model memory); offline or declined → L0.
 
-### 18.4 The 10 incidents
+### 18.4 The 9 incidents
 
-| id | sev | esc | LAYA label (`description` — `keywords`) |
+| id | sev | esc | description (LAY A option text) |
 | --- | --- | --- | --- |
-| `family-emergency-money` *(scenario A)* | CRITICAL | L0 | Relative in trouble, urgent money, don't call — it's me, new number, phone broke, accident, send money, don't call, transfer, gift card, hospital, bail |
-| `misinfo-breaking-event` *(scenario B)* | WARNING | L2 | Alarming breaking-news claim, no credible source, share quickly — breaking, confirm before deleted, sources say, share now |
-| `bank-authority-impersonation` | CRITICAL | L0 | Claims to be bank/police/tax pushing verify or pay — bank fraud department, verify your account, account will be frozen, click here, police |
-| `delivery-fee-smishing` | WARNING | L0 | Held parcel asks a small fee or details via a link — parcel held, delivery failed, customs fee, small fee, reschedule |
-| `otp-verification-theft` | CRITICAL | L0 | Someone asks you to read out or forward a one-time code — share the code, 6-digit code, read me the code, otp |
-| `gift-card-utility-threat` | CRITICAL | L0 | Threat of disconnection/fine/arrest, pay by gift card or crypto — final notice, disconnection, pay with gift cards, arrest, bitcoin |
-| `investment-guaranteed-returns` | CRITICAL | L1 | Guaranteed/high returns, act fast off-platform — guaranteed returns, weekly profit, mentor, dm me, whatsapp, no risk |
-| `romance-scam` | WARNING | L1 | Online partner never met, repeatedly needs money — i love you, never met, clearance fee, send money, visa |
-| `sextortion-blackmail` | CRITICAL | L0 | Threat to expose private images/info unless you pay — i have your video, webcam, pay in bitcoin, your contacts |
-| `safe-otp-notice` | INFO | L0 | A legitimate one-time code with no related request — verification code, one-time password, do not share this code |
+| `family-emergency-money` *(scenario A)* | CRITICAL | L0 | A relative in trouble asks for urgent money and says not to call. |
+| `misinfo-breaking-event` *(scenario B)* | WARNING | L2 | An alarming breaking claim with no source, urging you to share it. |
+| `bank-authority-impersonation` | CRITICAL | L0 | Claims to be your bank, police, tax office or utility and pressures you to verify or pay now. |
+| `delivery-fee-smishing` | WARNING | L0 | A held-parcel message asks for a small fee or your details via a link. |
+| `otp-verification-theft` | CRITICAL | L0 | Someone asks you to read out or forward a one-time code. |
+| `investment-guaranteed-returns` | CRITICAL | L1 | Promises guaranteed high returns and pushes you off-platform. |
+| `sextortion-blackmail` | CRITICAL | L0 | Threatens to expose private images or information unless you pay. |
+| `hate-abuse` | CRITICAL | L0 | A hostile or abusive message that insults you, including telling you to harm yourself. |
+| `no-threat` | INFO | L0 | An ordinary message with no scam or deceptive intent. |
 
-7 cases are fully offline (L0), 2 use the on-device LLM (L1), 1 uses the cloud
-with consent (L2).
+7 cases are fully offline (L0), 1 uses the on-device LLM (L1), 1 uses the cloud with
+consent (L2). LAY A's incident question offers all 9 ids as options (option text =
+the `description`); the chosen case supplies `severity` + `messages`.
 
 ### 18.5 Caveats
 
