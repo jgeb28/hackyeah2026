@@ -9,6 +9,24 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 13:45:00
+**Developer:** s3r10us3r
+
+**Task:** untrack the remaining Python tooling (kept on disk).
+
+#### 3. Development Workflow & Prompts
+* **Untracked (kept on disk, git-ignored):** `tools/fetch_model.py`, `tools/laya/convert_laya.py`, `tools/laya/rl_agent_api.py`, `tools/laya/rl_common.py`. The repo now carries app code, tests, and docs only; the LAY A conversion/fetch tooling stays local.
+* **Key Prompts:** "untrack the py scripts as well just do not delete."
+* **Follow-up:** `README.md` (provisioning), `LAYA_INTEGRATION.md`, and `AGENTS.md` §11 still reference these script paths — the docs need updating, or the scripts should ship with the Release.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer decision (repo holds project code/tests/docs only).
+* **Security Checks:** no secrets; signing config stays local.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** a fresh clone can no longer run `tools/fetch_model.py` to provision the `.ms`, so the README provisioning step is stale until the docs are updated or the scripts are distributed another way.
+
+---
 ## Update: 2026-10-04 13:35:00
 **Developer:** s3r10us3r
 

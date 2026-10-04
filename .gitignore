@@ -15,6 +15,10 @@ BuildProfile.ets
 .opencode/
 tests/*.sh
 fix-deveco-emulator-region.ps1
+tools/fetch_model.py
+tools/laya/convert_laya.py
+tools/laya/rl_agent_api.py
+tools/laya/rl_common.py
 tools/laya/dump_ms.py
 tools/laya/test_equiv.py
 tools/laya/test_local.py
