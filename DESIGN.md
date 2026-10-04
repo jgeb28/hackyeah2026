@@ -1,14 +1,12 @@
 # Guardian — an on-device safety copilot for HarmonyOS
 
-> **Status:** **Phase 1 implemented** (SDK trigger + automated tests); **Phase 2
-> OCR engine implemented** (PP-OCRv4 det+rec on MindSpore Lite, demoed on the
-> emulator); §16 remains design/roadmap. See **§17 As-built** for exactly what
-> ships today.
-> **Date:** 2026-10-03
+> **Status:** implemented — a **camera-anchored Smart Island** doing screen-region
+> scan (capture → crop → PP-OCRv4 → LAY A → incident) plus the **SDK trigger** path
+> with automated tests; §16 remains design/roadmap. See **§17 As-built**.
+> **Date:** 2026-10-04
 > **Target platform:** **HarmonyOS** (Huawei), native **ArkTS / ArkUI**
-> **API level:** minimum **API 20**; the current dev/CI build compiles against the
-> local **OpenHarmony API 23** SDK and runs on the Oniro emulator (no HarmonyOS
-> emulator is set up yet).
+> **API level:** minimum **API 20**; the dev/CI build compiles against the DevEco
+> **HarmonyOS** SDK (`6.1.1(24)`) and runs on the HarmonyOS phone emulator.
 > **Challenge areas:** *Human-Centric Technology* (accessible, wellbeing-focused
 > guidance) + *Intelligent Experiences* (on-device AI).
 >
@@ -149,8 +147,8 @@ blocking the build.
 | Requirement | Value / note |
 | --- | --- |
 | Language / UI | ArkTS / ArkUI, stage model |
-| Min API | **API 20** (HarmonyOS target); the dev/CI build currently compiles on the local **OpenHarmony API 23** SDK |
-| IDE / SDK | DevEco Studio with the **HarmonyOS** SDK; the current dev/CI loop uses the OpenHarmony command-line-tools + `oniro-app` on the Oniro emulator |
+| Min API | **API 20** (HarmonyOS target); the dev/CI build compiles against the DevEco **HarmonyOS** SDK (`6.1.1(24)`) |
+| IDE / SDK | DevEco Studio with the **HarmonyOS** SDK; built with `hvigorw` and installed with `hdc` on the HarmonyOS phone emulator |
 | JDK | 17 (required for API 20+) |
 | Node.js | ≥ 20 (Hvigor build tooling) |
 | Build | `hvigorw` (DevEco) |
@@ -229,7 +227,8 @@ drive the shipping architecture.
 
 1. Guardian is a **normal HarmonyOS HAP plus a reusable SDK** — not a system or
    accessibility service. The detection engine is fed by an `IngestSource`
-   abstraction: `InAppSdkSource` (Phase 1) and `ScreenOcrSource` (Phase 2).
+   abstraction: `InAppSdkSource` (SDK path) and the screen scanner + region
+   selector (`vision/ScreenScanner`, `alert/SelectorOverlay`, `pages/SelectArea`).
 2. **Phase 1** coverage is **partner/integration-driven** (a target app must call
    the SDK). **Phase 2 (OCR)** removes that requirement and reads any app on a
    real device — at a CPU/NPU and privacy cost — which is the closest a
@@ -253,7 +252,7 @@ flowchart LR
 
     subgraph Guardian["Guardian HAP + SDK"]
       SDK["GuardianClient SDK\n(report on render)"]
-      OCR["ScreenOcrSource (Phase 2)\nscreenshot → OCR"]
+      OCR["ScreenScanner\nscreenshot → crop → OCR"]
       ORCH["Orchestrator\n(debounce, dedupe, budget)"]
       CLS["Classifier\nLAYA (.ms) → verdict"]
       RAG["Retrieval\nembedding (.ms) + KB"]
@@ -288,7 +287,7 @@ Components:
   / typed-`Want` delivery; the common event is the simpler, permission-free
   Phase-1 mechanism, and the wire format is versioned so a service transport can
   replace it without touching the engine.
-- **`ScreenOcrSource` (Phase 2)** — user-consented `screenshot.capture()` /
+- **`ScreenScanner` + region selector (screen path)** — user-consented `screenshot.capture()` /
   `AVScreenCapture` → on-device OCR → text. Same pipeline downstream.
 - **`InAppSdkSource` (Phase 1)** — subscribes to the SDK event, `decodeReport`s
   the payload, and emits a `ScanJob` to the engine.
@@ -375,35 +374,27 @@ are involved: the host only reports text it already owns.
 - Because the host is the source, this is the **highest-fidelity, fully-open**
   path and the one the demo/mock apps use.
 
-### 7.2 Phase 2 — Screen capture → OCR (the real path)
+### 7.2 Screen capture → OCR (the real path)
 
-`ScreenOcrSource` reads the screen **without target-app cooperation**:
+`vision/ScreenScanner` reads the screen **without target-app cooperation**:
 
-- **Still capture:** `screenshot.capture()` returns a **full-screen** image; the
-  app holds `CUSTOM_SCREEN_CAPTURE` (requested from a foreground window).
-- **Continuous capture:** `AVScreenCapture` + a continuous task lets Guardian
-  watch a chat while it is foreground; the system shows a consent dialog and a
-  persistent capture indicator. *Real device only.*
-- **Triggering:** while another app is foreground, trigger via a persistent
-  on-screen control (global floating ball) or a notification action.
-- **Processing:** throttle frames (e.g. on foreground-app change / content
-  change), crop to likely text regions, run on-device OCR, feed the pipeline.
-- **Hardware:** CPU baseline; use the NPU (`NNRTDeviceType.ACCELERATOR`) when
-  available.
+- **Trigger:** the user taps **Select area** on the island and drags a box
+  (`alert/SelectorOverlay` + `pages/SelectArea`); Guardian then captures.
+- **Capture:** `screenshot.capture()` returns a **full-screen** image; the app holds
+  `CUSTOM_SCREEN_CAPTURE` (requested from a foreground window). The island is hidden
+  from the capture (`setWindowPrivacyMode`).
+- **Process:** `PixelMap.crop` to the selected box (vp → px via `densityPixels`), then
+  on-device OCR on the crop; the captured frame is released right after.
+- **Continuous / other-app triggering (not built):** would need `AVScreenCapture` +
+  a continuous task (real device only) or a system source (§16).
 
-**As built (OCR engine, 2026-10-03).** `extractTextFromImage(pixelMap, mgr)` in
+**As built (OCR engine).** `extractTextFromImage(pixelMap, mgr)` in
 `entry/src/main/ets/ocr/OcrEngine.ets` runs **PP-OCRv4 mobile** detection and
-recognition converted to MindSpore Lite:
-`det` (`1×960×960`, DB) finds text quads
-(`DbPostprocess.ts`: components → min-area rect → rect-expansion unclip),
-`rec` (`1×48×960`, SVTR/CTC) reads each crop (`ImageOps.ts`),
-and `CtcDecode.ts` maps the `ppocr_keys_v1` dictionary. Models ship in
-`resources/rawfile/ocr/`. On the Oniro emulator (API 23, CPU) the page
-`pages/OcrDemo.ets` recognizes a bundled sample in ~3.9 s total
-(models 21 ms, detect 663 ms, recognize 2346 ms for 6 lines). The
-`ScreenOcrSource` wraps this for the real capture path. This is independent of
-the Core Vision Kit seam in `vision/` (which is HarmonyOS-only and returns `''`
-on the OpenHarmony emulator). A demo entry point is `pages/OcrDemo`.
+recognition converted to MindSpore Lite: `det` (`1×960×960`, DB) finds text quads
+(`DbPostprocess.ts`: components → min-area rect → rect-expansion unclip), `rec`
+(`1×48×960`, SVTR/CTC) reads each crop (`ImageOps.ts`), and `CtcDecode.ts` maps the
+`ppocr_keys_v1` dictionary. Models ship in `resources/rawfile/ocr/`. The engine is
+wrapped by `vision/ScreenScanner` (capture → crop → OCR → `LayaClassifier` → KB).
 
 ### 7.3 Optional — user-initiated share / clipboard
 
@@ -589,33 +580,34 @@ The demo ships a **separate mock app** that integrates the SDK, so the cross-app
 - `com.hackyeah.mockchat` — a WeChat-like chat UI, preloaded with the
   "family emergency / wire money" scam thread. It links **`GuardianClient`** and
   calls `report(...)` as each message renders. **Built.**
-- `com.example.huwaweichallenge` — the Guardian engine HAP: the `InAppSdkSource`
-  endpoint (subscribes to the SDK event), the notification alert, and the in-app
-  `TriggerDemo` replay. **Built.**
-- `com.hackyeah.mockfeed` — a social feed with a fabricated alarming post; also
-  SDK-integrated. **Design only.**
+- `com.example.huwaweichallenge` — the Guardian engine HAP: the camera-anchored
+  Smart Island (region scan → OCR → LAY A → incident), the `InAppSdkSource`
+  endpoint (subscribes to the SDK event), and the notification alert. **Built.**
+- `facebook-feed-mock/` — a standalone web feed (fake-news + a scam post) used to
+  demo the screen scan. **Built** (web, not an SDK app).
 
-**Script (A1, primary):** launch Guardian (it subscribes to the SDK event) → allow
-notifications → open the mock chat → it reports the scam message → Guardian
-classifies on-device → a high-priority notification appears → tap → the overlay
-replays and highlights the message and offers *Call your child*.
+**Script (screen scan, primary):** launch Guardian → tap **Guard** (the pill appears
+under the camera) → open any app (e.g. the mock chat) → tap the pill → **Select area**
+→ drag a box around the scam text → **Scan this area** → the island shows the matched
+incident → **Details** opens the explanation and next steps.
 
-**Emulator caveat (verified).** The Oniro emulator aggressively kills the
-backgrounded Guardian process, so once the mock chat is foreground Guardian no
-longer receives SDK reports there. On the emulator we therefore demonstrate the
-pipeline with the **on-device `ohosTest`** suite and the in-app **`TriggerDemo`**
-replay; the *live cross-app* demo needs a real HarmonyOS device or a
-persistent/background mechanism (Phase 2, §7.2).
+**Script (SDK path):** launch Guardian (it subscribes to the SDK event) → allow
+notifications → open the mock chat → as each message renders the SDK reports it →
+Guardian classifies on-device → a local notification appears.
 
-**Automated evidence (Phase 1, run on the Oniro API 23 emulator):** unit
-**16/16**; hypium `ohosTest` **3/3** (`Tests run: 3, Failure: 0, Error: 0,
-Pass: 3`). See §17 for the exact commands.
+**Emulator caveat (verified).** An emulator may kill the backgrounded Guardian
+process, so the live cross-app SDK path needs a real device or a persistent
+background mechanism. The primary emulator demo is the **screen scan**
+(Select area → crop → OCR → LAY A → incident); the SDK path is covered by the
+unit + `ohosTest` suites.
 
-**Phase 2 (real, device):** no mock cooperation — Guardian captures the screen
-(`screenshot.capture()` for a still, or continuous `AVScreenCapture` + a
-continuous task), OCRs it on-device, and raises the same alert. Run on a **real
-device** (`AVScreenCapture` is unsupported on the emulator); use the still
-`screenshot.capture()` path on the emulator if it is supported there.
+**Automated evidence:** unit **30/30**; hypium `ohosTest` **3/3** (last run).
+See §17 for the exact commands.
+
+**Screen scan, no cooperation:** the user selects a region and Guardian captures the
+screen (`screenshot.capture()`), crops to the box, OCRs it on-device, and raises the
+alert. Continuous `AVScreenCapture` + a continuous task (real device only) is not
+built.
 
 **Evidence to capture:** build logs (`BUILD SUCCESSFUL`, JDK 17 for API 20+),
 install/launch output, `hilog` of the pipeline
@@ -662,9 +654,9 @@ model and on-device LLM; the fine-tuning dataset for LAYA; cloud provider.
 6. **M5 — Escalation:** on-device LLM path; consent-gated cloud path.
 7. **M6 — Demo & hardening (Phase 1):** SDK demo with mock apps, evidence
    capture, thresholds, docs, device/NPU and Live View stretch.
-8. **M7 — Phase 2 (real OCR):** `ScreenOcrSource` using `screenshot.capture()`
-   and/or `AVScreenCapture` + continuous task on a **real device**; throttling and
-   NPU acceleration; verify **no-cooperation** detection (mock app untouched).
+8. **M7 — Screen scan (partly done):** `ScreenScanner` + region selector using
+   `screenshot.capture()` → crop → on-device OCR → LAY A. **Built.** Continuous
+   `AVScreenCapture` + task (real device), throttling, and NPU acceleration remain.
 
 ---
 
@@ -715,7 +707,7 @@ unchanged.
   (Phase 1) then OCR (Phase 2).
 
 **Relationship to the phased design.** One engine; the system build simply swaps
-`InAppSdkSource` / `ScreenOcrSource` for `AccessibilitySource` +
+`InAppSdkSource` / `ScreenScanner` for `AccessibilitySource` +
 `NotificationSource`. The Phase 1/2 build is the honest, publishable subset;
 system access is the full target.
 
@@ -724,28 +716,41 @@ user-enabled and visible; Guardian remains advisory-only and on-device by defaul
 
 ---
 
-## 17. As-built (Phase 1) — what actually ships today
+## 17. As-built — what actually ships today
 
-**Status:** implemented and tested on the dev emulator. The pieces below are in
-the repo; everything else in this document is target/roadmap.
+**Status:** implemented and exercised on the dev emulator. Two ingestion paths:
+
+1. **Screen scan (primary UI).** A **camera-anchored Smart Island** (`alert/IslandOverlay`
+   + `pages/FloatingIsland` + `components/SmartIsland`) sits just under the front-camera
+   cutout. The user taps **Select area**, drags a box (`alert/SelectorOverlay` +
+   `pages/SelectArea`), and Guardian captures the screen, **crops to the box**, runs
+   on-device PP-OCRv4 and LAYA, and shows the matched incident (or opens
+   `pages/IncidentDetail`). The island is hidden from the capture.
+2. **In-app SDK trigger.** An integrated app (`mocks/mockchat`) reports rendered text via
+   `GuardianClient`; `InAppSdkSource` → `TriggerEngine` → rules classifier →
+   `NotificationService` (local notification only).
 
 ### Code map
 
 | Area | Path |
 | --- | --- |
 | SDK HAR `@hackyeah/guardian_sdk` | `HuwaweiChallenge/guardian_sdk/` |
-| SDK client | `guardian_sdk/src/main/ets/GuardianClient.ets` (`report()`, injectable `ReportEmitter`) |
-| SDK wire contract | `guardian_sdk/src/main/ets/GuardianProtocol.ts` (`GUARDIAN_MESSAGE_EVENT`, `encodeReport`/`decodeReport`) |
-| Ingestion | `entry/src/main/ets/sdk/InAppSdkSource.ets`; `entry/src/main/ets/trigger/IngestSource.ts` |
-| Engine | `entry/src/main/ets/trigger/TriggerEngine.ets` |
-| Scan policy | `entry/src/main/ets/trigger/ScanPolicy.ts` |
-| Classifier | `entry/src/main/ets/trigger/Classify.ts` (deterministic rules) |
+| SDK client / wire contract | `guardian_sdk/src/main/ets/GuardianClient.ets`, `GuardianProtocol.ts` |
+| Island window | `entry/src/main/ets/alert/IslandOverlay.ets`, `pages/FloatingIsland.ets` |
+| Island UI | `entry/src/main/ets/components/SmartIsland.ets` |
+| Region selector | `entry/src/main/ets/alert/SelectorOverlay.ets`, `pages/SelectArea.ets` |
+| Incident page | `entry/src/main/ets/pages/IncidentDetail.ets`, `components/IncidentDetailView.ets`, `detail/DetailTypes.ts` |
+| Scanner | `entry/src/main/ets/vision/ScreenScanner.ets` |
+| OCR | `entry/src/main/ets/vision/OcrEngine.ets`, `ocr/OcrEngine.ets` (+ `ImageOps`, `DbPostprocess`, `CtcDecode`, `OcrTypes`) |
+| LAYA classifier | `entry/src/main/ets/vision/LayaClassifier.ets` → `domain/usecase/AnalyseMessageUseCase.ets` |
+| Incident KB | `entry/src/main/ets/alert/IncidentKb.ets`, `resources/rawfile/kb/en/incidents.json` (§18) |
+| Theme | `entry/src/main/ets/alert/AlertTheme.ets` |
+| SDK ingestion | `entry/src/main/ets/sdk/InAppSdkSource.ets`, `trigger/TriggerEngine.ets`, `trigger/Classify.ts`, `trigger/ScanPolicy.ts`, `trigger/IngestSource.ts`, `trigger/TriggerTypes.ts` |
 | Alert sink | `entry/src/main/ets/alert/NotificationService.ets` |
-| Host demo | `mocks/mockchat/` (calls `GuardianClient.report`) |
-| In-app replay | `entry/src/main/ets/pages/TriggerDemo.ets` |
-| Incident KB (data, §18) | `entry/src/main/resources/rawfile/kb/en/incidents.json` |
+| Dev-only remote backend | `entry/src/main/ets/dev/` (`BackendSettings`, `BackendFactory`, `RemoteClient`), `vision/RemoteOcrEngine.ets`, `data/datasource/RemoteDecisionRepository.ets` |
+| Demos | `mocks/mockchat/` (SDK host); `facebook-feed-mock/` (web feed) |
 
-### Wire format
+### Wire format (SDK path)
 
 - Event: `com.hackyeah.guardian.MESSAGE_RENDERED`
 - Payload (`data`): `{"v":1,"bundleName":…,"text":…,"messageId"?…,"timestampMs"?…}`
@@ -756,30 +761,26 @@ the repo; everything else in this document is target/roadmap.
 
 | Suite | How to run | Result |
 | --- | --- | --- |
-| Unit (device-free, `node --test`) | `tsc -p tsconfig.tests.json && node --test .test-build/tests/unit/` | **16/16 pass** |
-| Integration (hypium `ohosTest`, on-device) | build + install the app & `ohosTest` HAP, then `aa test -b com.example.huwaweichallenge -m entry_test -s unittest OpenHarmonyTestRunner` | **3/3 pass** |
+| Unit (device-free, `node --test`) | `tsc -p tsconfig.tests.json && node --test ".test-build/tests/unit/*.test.js"` | **30/30 pass** |
+| Integration (hypium `ohosTest`, on-device) | build + install the app & `ohosTest` HAP, then `aa test -b com.example.huwaweichallenge -m entry_test -s unittest OpenHarmonyTestRunner` | 3/3 (last run) |
 
 The test **code** lives in `tests/unit/*.test.ts` (+ `tsconfig.tests.json`) and
-`entry/src/ohosTest`; no wrapper scripts are committed (the `oniro-app`/`hdc`
-commands are used directly).
-
-Unit tests cover the SDK protocol (round-trip, plain-text fallback, rejection of
-empty/malformed), classifier thresholds, and scan-policy dedupe/budget. The
-integration test encodes via the SDK, decodes exactly as `InAppSdkSource` does,
-and drives a real `TriggerEngine` with a fake alert sink.
+`entry/src/ohosTest`; no wrapper scripts are committed. Unit tests cover the SDK
+protocol, classifier thresholds, scan-policy dedupe/budget, KB incidents, OCR math,
+and incident-detail parsing. The integration test encodes via the SDK, decodes exactly
+as `InAppSdkSource` does, and drives a real `TriggerEngine` with a fake alert sink.
 
 ### Dev environment & known limits
 
-- **Dev/CI:** OpenHarmony **Oniro API 23** emulator, built with the
-  command-line-tools via `oniro-app`; the shipping target stays **HarmonyOS
-  API 20+** (a HarmonyOS dev build is not yet set up).
-- **Emulator limitation (verified):** the emulator kills the backgrounded
-  Guardian process, so the live cross-app path is not reproducible there (§13).
-- **In repo but not shipping:** an `AccessibilityExtensionAbility` prototype
-  (`entry/src/main/ets/accessibility/GuardianAccessibilityExtAbility.ets`) exists
-  for OpenHarmony dev testing of the §16 tier.
-- **Not yet built:** overlay `UIAbility`, the KB/RAG runtime (resource defined in
-  §18), LAYA `.ms`, per-app toggles, Phase 2 OCR (§7.2), system sources (§16).
+- **Dev/CI:** HarmonyOS emulator (API 23/24) built with DevEco `hvigorw` (`hdc` to
+  install); the shipping target stays **HarmonyOS API 20+**.
+- **Emulator:** CPU-only (no NPU); LAYA inference is slow, hence the **dev-only remote
+  backend** (a host server, selected by the in-app "Dev mode" switch).
+- **Capture is never silent:** `screenshot.capture()` shows the system indicator.
+- The **camera-cutout / status-bar band is not touch-sensitive** to our window; the
+  island's controls live below it.
+- **Not yet built:** per-app toggles, KB embedding/RAG retrieval, on-device LLM and
+  consent-gated cloud escalation (§9), and the system-access sources (§16).
 
 ---
 

@@ -9,6 +9,27 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 04:54:31
+**Developer:** s3r10us3r
+
+**Task:** update the stale docs to match the current code. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **`RUNNING.md`** — full rewrite: camera-anchored Smart Island, region-select scan (capture → crop → PP-OCRv4 → LAYA → incident), Details page, colours/auto-reset, Dev-mode remote backend, current build/install/log commands.
+* **`LAYA_INTEGRATION.md`** — updated architecture tree (no `AnswerPopup`; added `vision/LayaClassifier`, `workers/LayaWorker`), the two-question schema (deception + category; `MAX_OPTIONS=3`), the current inference flow, the w8/s256 shipped artefact, and the dev-only remote note.
+* **`DESIGN.md`** — rewrote §17 As-built (both ingestion paths, code map, 30/30 unit tests, current limits); updated the status banner, dev/SDK rows, §5/§6/§7.2 (ScreenScanner + region selector, no `OcrDemo`), §13 demo scripts, §15 M7, §16.
+* Left the `AI_WORKFLOW_*.md` files alone (append-only history).
+* **Key Prompts:** "Now update the stale docs."
+* **Testing & Debugging:** grep confirms no remaining references to removed files in the live docs.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to review.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Note:** the live docs (`DESIGN.md`/`RUNNING.md`/`LAYA_INTEGRATION.md`) are updated; `AI_WORKFLOW_*.md` are historical and intentionally not edited.
+
+---
 ## Update: 2026-10-04 04:48:57
 **Developer:** s3r10us3r
 
