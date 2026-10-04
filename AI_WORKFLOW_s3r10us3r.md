@@ -9,6 +9,20 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 14:30:00
+**Developer:** s3r10us3r
+
+**Task:** remove the `facebook-feed-mock` demo from the repo (kept outside for the demo).
+
+#### 3. Development Workflow & Prompts
+* **Removed** `facebook-feed-mock/` from tracking (the folder is no longer in the repo). A working copy now lives **outside** the repo at `C:\guardian-demo\facebook-feed-mock` and is served on `:9000` for the screen-scan demo.
+* **Key Prompts:** "Remove the facebook-feed-mock from the repo."; "keep the facebook-feed-mock outside the repo so i can use it for demo."
+* **Docs:** dropped the `facebook-feed-mock/` row from the README repo layout; added the path to `.gitignore`.
+
+#### 5. Limitations & Lessons Learned
+* **Note:** the mock feed is a demo prop, not product code; keeping it out of the repo keeps the submission free of the fake feed while the demo still runs from the external copy.
+
+---
 ## Update: 2026-10-04 07:22:00
 **Developer:** s3r10us3r
 
