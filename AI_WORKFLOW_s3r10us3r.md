@@ -9,6 +9,25 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 13:35:00
+**Developer:** s3r10us3r
+
+**Task:** repo cleanup before release (untrack local-only helpers).
+
+#### 3. Development Workflow & Prompts
+* **Audit:** build output/caches, the 412 MB `.ms`, module lock files, and signing material are all correctly git-ignored; the repo only held a few stray **tracked** files.
+* **Untracked (kept on disk, added to `.gitignore`):** `HuwaweiChallenge/.vscode/settings.json` (IDE config, §8); `fix-deveco-emulator-region.ps1` and six one-off `tools/laya` dev scripts (`dump_ms`, `test_equiv`, `test_local`, `tokenizer_check`, `try_laya`, `validate_ms`) — local helpers, §9; `HuwaweiChallenge/oh-package-lock.json5` (already covered by `**/oh-package-lock.json5`).
+* **Kept:** `convert_laya.py`, `rl_agent_api.py`, `rl_common.py`, `tools/fetch_model.py` (used by the converter / dev server / provisioning).
+* **Key Prompts:** "Now we will clean the repo of all the unneccessary stuff."; "leave the scripts but remove them from the remote repository."
+
+#### 4. Review & Validation
+* **Human Oversight:** developer chose which files to drop; `HuwaweiChallenge/AI_WORKFLOW.md` left in place for now.
+* **Security Checks:** no secrets added; the signing config stays local (`skip-worktree`).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** `.gitignore` only affects *untracked* files — the stray lock file and IDE config had to be `git rm --cached` to actually leave the repo. Local helpers stay on disk but out of the remote.
+
+---
 ## Update: 2026-10-04 13:20:00
 **Developer:** s3r10us3r
 
