@@ -12,6 +12,7 @@ const TAG: string = 'GuardianDetail';
 
 interface DetailParams {
   json?: string;
+  text?: string;
 }
 
 /** Single test incident (KB shape). Edit this to test other content. */
@@ -38,11 +39,16 @@ struct IncidentDetail {
   @State canDescribe: boolean = false;
   @State describeStatus: string = 'idle'; // idle | loading | done | error
   @State describeText: string = '';
+  /** The scanned text that raised this incident; sent to DeepSeek with the incident. */
+  @State scannedText: string = '';
 
   aboutToAppear(): void {
     const params: DetailParams = this.getUIContext().getRouter().getParams() as DetailParams;
     if (params !== undefined && params !== null && typeof params.json === 'string' && params.json.length > 0) {
       this.json = params.json;
+    }
+    if (params !== undefined && params !== null && typeof params.text === 'string') {
+      this.scannedText = params.text;
     }
     const doc: IncidentDoc | null = parseIncident(this.json);
     const escalation: string = doc !== null ? doc.escalation : '';
@@ -59,7 +65,7 @@ struct IncidentDetail {
     this.describeText = '';
     try {
       const body: string = `${doc.description}\n\n${doc.explanation}`;
-      this.describeText = await DeepSeekClient.describe(doc.title, body);
+      this.describeText = await DeepSeekClient.describe(doc.title, body, this.scannedText);
       this.describeStatus = 'done';
     } catch (err) {
       const code: number | undefined = (err as BusinessError).code;

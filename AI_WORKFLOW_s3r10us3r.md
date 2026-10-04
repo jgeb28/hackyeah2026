@@ -40,6 +40,28 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 * **Lessons Learned:** the Lite converter is cross-platform today; a quant config file replaces `--quantType`; ModernBERT's internal mask builder emits ops the Lite CPU runtime cannot convert.
 
 ---
+## Update: 2026-10-04 14:00:00
+**Developer:** s3r10us3r
+
+**Task:** send the scanned text to DeepSeek so "Describe" answers the actual message.
+
+#### 1. AI Features
+* **Inference Flow:** the optional DeepSeek call now includes the **OCR text that raised the incident**, not just the KB incident fields, so the reply addresses the real content.
+* **Data Handling & Privacy:** the scanned text leaves the device only when a key is set and the user taps Describe; the on-screen caption now says so.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** plumbed `outcome.text` through `SmartIsland` → `onDetails(json, text)` → route params → `IncidentDetail.scannedText` → `DeepSeekClient.describe(title, body, message)`. The user message is `Incident: … / Message shown on screen: """ … """` (capped at 4000 chars). Caption: "Sends the scanned text and incident details to DeepSeek."
+* **Key Prompts:** "Give deepseek all of the scanned texts, his responses do not address the content."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed (signed). The live response is not verified here (needs a real key).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to verify a live Describe against the scanned text.
+* **Security Checks:** the scanned text goes off-device only on explicit user action; no key in the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Note:** the working tree also held a **concurrent session's uncommitted edits** (KB → 8 incidents, threshold, meta, docs); only the five files for this change were committed.
+
+---
 ## Update: 2026-10-04 13:45:00
 **Developer:** s3r10us3r
 

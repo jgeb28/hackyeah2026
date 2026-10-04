@@ -114,7 +114,7 @@ export struct IncidentDetailView {
                 .onClick(() => {
                   this.onDescribe();
                 })
-              Text("Sends this incident's text to DeepSeek.")
+              Text('Sends the scanned text and incident details to DeepSeek.')
                 .fontSize(11)
                 .fontColor('#8A8F99')
                 .width('100%')
