@@ -14,6 +14,13 @@ BuildProfile.ets
 # --- Local-only tooling (kept on disk, not committed) ---
 .opencode/
 tests/*.sh
+fix-deveco-emulator-region.ps1
+tools/laya/dump_ms.py
+tools/laya/test_equiv.py
+tools/laya/test_local.py
+tools/laya/tokenizer_check.py
+tools/laya/try_laya.py
+tools/laya/validate_ms.py
 
 # --- Dependency lock files (regenerated locally; not committed) ---
 **/oh-package-lock.json5
