@@ -19,12 +19,12 @@ import { DecisionRepository } from '../repository/DecisionRepository';
  * answer only selects which KB case is shown (its head is noisy, so it never decides
  * the verdict).
  *
- * Thresholds are **provisional and fragile** — the base Laya head is not calibrated
- * for this bespoke question. Measured: scams ~0.35-0.53, benign text ~0.08-0.22,
- * benign app/UI chrome up to ~0.32. This MUST be replaced by a fine-tuned/calibrated
- * head before shipping.
+ * Thresholds are calibrated against the fine-tuned LAY A head (DIFrauD + UI
+ * augmentation; 5-fold cross-validation, temperature scaling baked into the `.ms`).
+ * At the DANGEROUS point: FNR ~7% / FPR ~27% on the held-out test set; CRITICAL is
+ * the high-confidence tier. See `DATA_SCIENCE.md`.
  */
-const DECEPTIVE_DANGEROUS: number = 0.34;
+const DECEPTIVE_DANGEROUS: number = 0.25;
 const DECEPTIVE_CRITICAL: number = 0.55;
 
 /**

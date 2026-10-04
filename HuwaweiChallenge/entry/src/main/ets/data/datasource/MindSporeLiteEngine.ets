@@ -33,7 +33,7 @@ interface LayaMetaDto {
  * model into the sandbox, hand the worker its inputs, and turn the returned
  * logits into a Guardian verdict.
  *
- * Graph contract (produced by `~/tmp/convert_laya.py`; see LAYA_INTEGRATION.md):
+ * Graph contract (produced by `tools/laya/convert_laya.py`; see AI_INTEGRATION.md):
  *   input  "input_ids"      int32 [Q, max_len]   one Laya sequence per question
  *   input  "attention_mask" int32 [Q, max_len]   1 = real token, 0 = pad
  *   output "logits"         fp32  [1, Q, MAX_OPTIONS]  (temperature-scaled)
