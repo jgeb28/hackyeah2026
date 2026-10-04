@@ -4,6 +4,7 @@ import { notificationManager } from '@kit.NotificationKit';
 import { window } from '@kit.ArkUI';
 import { AlertTheme } from '../alert/AlertTheme';
 import { BackendSettings } from '../dev/BackendSettings';
+import { DeepSeekSettings } from '../dev/DeepSeekSettings';
 import { IncidentKb } from '../alert/IncidentKb';
 import { IslandOverlay } from '../alert/IslandOverlay';
 import { SelectorOverlay } from '../alert/SelectorOverlay';
@@ -44,6 +45,7 @@ export default class EntryAbility extends UIAbility {
 
   async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
     await BackendSettings.load(this.context);
+    await DeepSeekSettings.load(this.context);
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));

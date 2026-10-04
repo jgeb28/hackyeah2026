@@ -19,10 +19,12 @@ export struct SmartIsland {
   @State severity: string = '';
   /** KB incident JSON for the Details page; set when a scam is detected. */
   @State incidentJson: string = '';
+  /** The scanned text that triggered the incident (for the optional cloud Describe). */
+  @State incidentText: string = '';
   /** Called when the user closes the island for good (the small x). */
   onClose: () => void = () => {};
   /** Called when the user taps Details on a scam result. */
-  onDetails: (json: string) => void = () => {};
+  onDetails: (json: string, text: string) => void = () => {};
   /** Called on expand/collapse so the floating window can resize itself. */
   onResize: (expanded: boolean) => void = () => {};
 
@@ -81,6 +83,7 @@ export struct SmartIsland {
     this.title = 'Guardian';
     this.detail = '';
     this.incidentJson = '';
+    this.incidentText = '';
     this.color = IDLE_COLOR;
     this.severity = '';
     this.setExpanded(false);
@@ -105,6 +108,7 @@ export struct SmartIsland {
     this.title = 'Scanning the screen...';
     this.detail = '';
     this.incidentJson = '';
+    this.incidentText = '';
     this.color = IDLE_COLOR;
     this.severity = '';
     const token: number = ++this.scanToken;
@@ -144,6 +148,7 @@ export struct SmartIsland {
           this.title = incident.title;
           this.detail = `${incident.explanation} ${incident.remediation.join(' ')}`;
           this.incidentJson = JSON.stringify(incident);
+          this.incidentText = outcome.text;
         } else {
           this.color = AlertTheme.colorForSeverity(result.severity ?? 'WARNING');
           this.severity = result.severity ?? 'WARNING';
@@ -232,7 +237,7 @@ export struct SmartIsland {
             .backgroundColor(Color.White)
             .fontColor(this.color)
             .onClick(() => {
-              this.onDetails(this.incidentJson);
+              this.onDetails(this.incidentJson, this.incidentText);
             })
         } else {
           Button('Select area')

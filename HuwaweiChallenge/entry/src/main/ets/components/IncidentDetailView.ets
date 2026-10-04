@@ -8,6 +8,11 @@ import { AlertTheme } from '../alert/AlertTheme';
 export struct IncidentDetailView {
   @Prop @Watch('reload') json: string = '';
   @State doc: IncidentDoc | null = null;
+  /** Whether to offer the (optional, cloud) DeepSeek "Describe" action. */
+  @Prop canDescribe: boolean = false;
+  @Prop describeStatus: string = 'idle'; // idle | loading | done | error
+  @Prop describeText: string = '';
+  onDescribe: () => void = () => {};
 
   aboutToAppear(): void {
     this.reload();
@@ -90,6 +95,49 @@ export struct IncidentDetailView {
           .fontWeight(FontWeight.Bold)
           .fontColor('#182431')
           .width('100%')
+
+        if (this.canDescribe) {
+          Column({ space: 6 }) {
+            if (this.describeStatus === 'loading') {
+              Row({ space: 8 }) {
+                LoadingProgress().width(18).height(18).color('#0A59F7')
+                Text('Asking DeepSeek…').fontSize(14).fontColor('#8A8F99')
+              }
+              .width('100%')
+            } else {
+              Button('Describe with DeepSeek')
+                .fontSize(14)
+                .height(40)
+                .width('100%')
+                .backgroundColor('#0A59F7')
+                .fontColor(Color.White)
+                .onClick(() => {
+                  this.onDescribe();
+                })
+              Text('Sends the scanned text and incident details to DeepSeek.')
+                .fontSize(11)
+                .fontColor('#8A8F99')
+                .width('100%')
+            }
+            if (this.describeStatus === 'done' && this.describeText.length > 0) {
+              Text(this.describeText)
+                .fontSize(15)
+                .lineHeight(22)
+                .fontColor('#182431')
+                .width('100%')
+                .padding(12)
+                .backgroundColor('#EAF2FF')
+                .borderRadius(10)
+            }
+            if (this.describeStatus === 'error' && this.describeText.length > 0) {
+              Text(this.describeText)
+                .fontSize(13)
+                .fontColor('#E84026')
+                .width('100%')
+            }
+          }
+          .width('100%')
+        }
 
         this.section('What this is', doc.description)
         this.section('Why it matters', doc.explanation)

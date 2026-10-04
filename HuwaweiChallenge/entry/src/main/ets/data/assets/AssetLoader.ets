@@ -29,6 +29,10 @@ export interface AssetLoader {
    * @returns number of bytes copied.
    */
   copyRawfileTo(name: string, destPath: string): Promise<number>;
+  /** Size in bytes of a bundled rawfile, without copying it. */
+  rawfileSize(name: string): number;
+  /** Size in bytes of a sandbox file, or -1 when it does not exist. */
+  fileSize(path: string): number;
 }
 
 export class RawfileAssetLoader implements AssetLoader {
@@ -54,6 +58,18 @@ export class RawfileAssetLoader implements AssetLoader {
       return fs.accessSync(path);
     } catch (error) {
       return false;
+    }
+  }
+
+  rawfileSize(name: string): number {
+    return this.manager.getRawFdSync(name).length;
+  }
+
+  fileSize(path: string): number {
+    try {
+      return fs.statSync(path).size;
+    } catch (error) {
+      return -1;
     }
   }
 
@@ -111,8 +127,10 @@ export class RawfileAssetLoader implements AssetLoader {
 
     hilog.info(DOMAIN, TAG, 'rawfile %{public}s offset=%{public}d length=%{public}d magic=%{public}s',
       name, start, total, hex);
-    if (!hex.startsWith('280000004d534c32')) {
-      throw new Error(`rawfile ${name} is not a MINDIR_LITE model (magic=${hex})`);
+    // MindSpore Lite `.ms` = a 4-byte prefix (whose value varies by version) followed
+    // by the ASCII identifier "MSL2". Validate the identifier, not the exact prefix.
+    if (hex.length < 16 || hex.substring(8, 16) !== '4d534c32') {
+      throw new Error(`rawfile ${name} is not a MindSpore Lite model (magic=${hex})`);
     }
     if (done !== total) {
       throw new Error(`rawfile ${name} copy incomplete: ${done}/${total} bytes`);

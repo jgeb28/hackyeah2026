@@ -21,16 +21,38 @@ let prefixes: number[][] = [];
 let sepId: number = 50282;
 let padId: number = 50283;
 let maxLen: number = 512;
+let nnrtDeviceId: number = -1;
 
-/** CPU-only context (the emulator has no NNRt/NPU device). */
+/** CPU by default; NNRt (NPU) when the host picked an accelerator device. */
 function buildContext(): mindSporeLite.Context {
   const context: mindSporeLite.Context = {};
-  context.target = ['cpu'];
   const cpu: mindSporeLite.CpuDevice = {};
   cpu.threadNum = 4;
   cpu.precisionMode = 'enforce_fp32';
   context.cpu = cpu;
+  if (nnrtDeviceId >= 0) {
+    try {
+      context.target = ['nnrt'];
+      const nnrt: mindSporeLite.NNRTDevice = {};
+      nnrt.deviceID = BigInt(nnrtDeviceId);
+      context.nnrt = nnrt;
+      hilog.info(DOMAIN, TAG, 'context: target=nnrt deviceID=%{public}d', nnrtDeviceId);
+      return context;
+    } catch (error) {
+      hilog.warn(DOMAIN, TAG, 'NNRt context failed, falling back to CPU: %{public}s', workerMsg(error));
+    }
+  }
+  context.target = ['cpu'];
+  hilog.info(DOMAIN, TAG, 'context: target=cpu threads=%{public}d fp32', cpu.threadNum);
   return context;
+}
+
+/** Best-effort message from a thrown value (ArkTS errors stringify to "{}"). */
+function workerMsg(error: Object): string {
+  const err: Error = error as Error;
+  const message: string = err.message !== undefined ? err.message : String(error);
+  const stack: string = err.stack !== undefined ? err.stack : '';
+  return stack.length > 0 ? `${message} | ${stack}` : message;
 }
 
 async function onInit(req: WorkerRequest): Promise<void> {
@@ -40,10 +62,15 @@ async function onInit(req: WorkerRequest): Promise<void> {
   sepId = meta.sep_id !== undefined ? meta.sep_id : sepId;
   padId = meta.pad_id !== undefined ? meta.pad_id : padId;
   maxLen = meta.max_len !== undefined ? meta.max_len : maxLen;
+  nnrtDeviceId = req.nnrtDeviceId !== undefined ? req.nnrtDeviceId : -1;
+  hilog.info(DOMAIN, TAG, 'init: prefixes=%{public}d maxLen=%{public}d sep=%{public}d pad=%{public}d nnrt=%{public}d',
+    prefixes.length, maxLen, sepId, padId, nnrtDeviceId);
 
   hilog.info(DOMAIN, TAG, 'loading model from %{public}s', req.modelPath as string);
+  const tLoad: number = Date.now();
   model = await mindSporeLite.loadModelFromFile(req.modelPath as string, buildContext());
-  hilog.info(DOMAIN, TAG, 'model loaded (prefixes=%{public}d maxLen=%{public}d)', prefixes.length, maxLen);
+  hilog.info(DOMAIN, TAG, 'model loaded (prefixes=%{public}d maxLen=%{public}d) in %{public}d ms',
+    prefixes.length, maxLen, Date.now() - tLoad);
   const res: WorkerResponse = { type: 'ready', id: req.id };
   port.postMessage(res);
 }
@@ -59,12 +86,17 @@ async function onInfer(req: WorkerRequest): Promise<void> {
   const state: number[] = tokenizer.encode(req.state as string);
   const q: number = prefixes.length;
   const s: number = maxLen;
+  hilog.info(DOMAIN, TAG, 'infer: stateTokens=%{public}d questions=%{public}d seqLen=%{public}d',
+    state.length, q, s);
   const ids: Int32Array = new Int32Array(q * s);
   const mask: Int32Array = new Int32Array(q * s);
 
   for (let qi = 0; qi < q; qi++) {
     const prefix: number[] = prefixes[qi];
     const room: number = s - prefix.length - 1;
+    const fed: number = state.length < room ? state.length : room;
+    hilog.info(DOMAIN, TAG, 'infer q%{public}d: prefix=%{public}d room=%{public}d fed=%{public}d',
+      qi, prefix.length, room, fed);
     const base: number = qi * s;
     let pos: number = 0;
     for (let i = 0; i < prefix.length; i++) {
@@ -101,7 +133,8 @@ async function onInfer(req: WorkerRequest): Promise<void> {
   const logits: Float32Array = new Float32Array(raw.length);
   logits.set(raw);
   const logitsBuffer: ArrayBuffer = logits.buffer as ArrayBuffer;
-  hilog.info(DOMAIN, TAG, 'infer ok: tokens=%{public}d latency=%{public}d', state.length, latency);
+  hilog.info(DOMAIN, TAG, 'infer ok: tokens=%{public}d latency=%{public}d ms logits=%{public}d',
+    state.length, latency, raw.length);
   const res: WorkerResponse = { type: 'result', id: req.id, logits: logitsBuffer, latencyMs: latency };
   port.postMessage(res, [logitsBuffer]);
 }
@@ -112,7 +145,7 @@ port.onmessage = (e: MessageEvents): void => {
     onInit(req).catch((error: Error): void => {
       const res: WorkerResponse = {
         type: 'error', id: req.id,
-        message: error.message !== undefined ? error.message : String(error)
+        message: workerMsg(error)
       };
       port.postMessage(res);
     });
@@ -120,7 +153,7 @@ port.onmessage = (e: MessageEvents): void => {
     onInfer(req).catch((error: Error): void => {
       const res: WorkerResponse = {
         type: 'error', id: req.id,
-        message: error.message !== undefined ? error.message : String(error)
+        message: workerMsg(error)
       };
       port.postMessage(res);
     });

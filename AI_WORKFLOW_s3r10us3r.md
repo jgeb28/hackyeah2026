@@ -9,6 +9,184 @@ and each is kept deliberately compressed (highlights only — no transcripts).
 > repo [`AGENTS.md`](./AGENTS.md). This file holds only this developer's entries.
 
 ---
+## Update: 2026-10-04 07:22:00
+**Developer:** s3r10us3r
+
+**Task:** re-run the LAY A fine-tune on the 9-incident schema, calibrate it, and produce the on-device `.ms` **on Windows** (no WSL).
+
+#### 1. AI Features
+* **Model/Service:** fine-tuned LAY A = `ModernBERT-large` (frozen encoder) + 2-layer head (421 M; 26.5 M trainable), run on-device by MindSpore Lite. Questions: `deception` (safe/deceptive) + `incident` (9 KB ids).
+* **Inference Flow:** OCR text → per-question prefix + text → one batched graph forward → temperature-scaled logits; the app maps `P(deceptive)` to a verdict via calibrated thresholds.
+* **Data Handling & Privacy:** fully on-device, offline; training data lives outside the repo (`C:\guardian-data`); no PII.
+* **Limitations & Validation:** 5-fold CV on the held-out DIFrauD+UI test set. Deception AUC **0.930**; shipped gate thr **0.25** (FNR 6.9% / FPR 27.0%). Incident head is weak (acc 0.639, macro-F1 0.329; rule-derived labels) so it only picks the displayed case.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent running `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none (local tooling only).
+* **Configuration:** devserver uv env (torch 2.11.0+cu128, transformers 4.57.6); MindSpore Lite **2.4.1** Windows converter.
+
+#### 3. Development Workflow & Prompts
+* **Ideation & Architecture:** keep the working-tree 2-question schema (`deception` + `incident`), recall-first bias, head-only fine-tune, w8 export.
+* **Implementation:** DIFrauD (+ filtered `political_statements` relabelled as misinformation) + synthetic UI/chrome hard negatives; 2-epoch head-only train; CV fit of temperature + threshold; temperature baked into the graph; ONNX → `.ms`.
+* **Key Prompts:** "Keep the same format we use now on-device!"; "Is the script on repo? Why can't it be done on windows?"; "set up the script on my ubuntu WSL".
+* **Testing & Debugging:** `converter_lite` **does** ship for Windows (2.4.1), but it dropped `--quantType` → weight quant now needs `--configFile` (`quant_type = WEIGHT_QUANT`). Also fixed a broken ONNX export: the graph passed a **dict** attention mask that ModernBERT never accepted (`_update_attention_mask` path emitted dynamic-shape ops) → replaced with a static-mask override.
+
+#### 4. Review & Validation
+* **Human Oversight:** product owner chose the middle operating point (FNR 5–10% / FPR 25–35%) and validates the UI on the emulator.
+* **Security Checks:** no secrets added; training data and converter stay outside the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Unsuccessful Approaches:** assuming the Windows converter was unavailable (it isn't); `--quantType=WEIGHT_QUANT` (removed in 2.4.1); dict attention mask (never supported by any transformers release).
+* **Lessons Learned:** the Lite converter is cross-platform today; a quant config file replaces `--quantType`; ModernBERT's internal mask builder emits ops the Lite CPU runtime cannot convert.
+
+---
+## Update: 2026-10-04 14:15:00
+**Developer:** s3r10us3r
+
+**Task:** make the on-device LAY A path work again + NPU (NNRt) targeting + robust logs.
+
+#### 1. AI Features
+* **Inference Flow:** on-device MindSpore Lite LAY A. Fixed sandbox materialisation and added **NNRt (NPU)** targeting; falls back to CPU (4 threads, fp32) when no accelerator is present.
+* **Limitations & Validation:** on-device inference works (emulator, CPU); seq-512 CPU inference is ~2-3 min. The NPU path is wired but unverified here (emulator has no NPU).
+
+#### 3. Development Workflow & Prompts
+* **Root cause:** `AssetLoader.copyRawfileTo` hardcoded the `.ms` header `280000004d534c32`, so the new model (`240000004d534c32` + `MSL2`) was rejected and the app silently ran a **stale sandbox copy** → `laya classify failed {}`.
+* **Fixes:** validate the `MSL2` identifier (not the varying 4-byte prefix); re-copy when the rawfile size differs from the sandbox file; probe NNRt on the main thread and pass the accelerator device id to the worker, which targets `nnrt` (else `cpu`).
+* **Logs (for fast real-hardware NPU debugging):** meta summary (questions/option counts), materialisation decision + bytes, `accelerator=… nnrtDeviceId=…`, worker `context: target=nnrt|cpu`, model load ms, `infer: stateTokens=… questions=… seqLen=…`, per-question `prefix/room/fed`, `infer ok: … latency=… logits=…`, per-question `decode … -> … conf=…`, and real error messages (no more `{}`).
+* **Key Prompts:** "Make the on-device models work as well. Make sure they get the npu acceleration on real hardware."; "add robust logs. We will soon debug on real hardware with npu."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed; on-device scan confirmed (`copied 433571816 bytes`, `model loaded`, inference ran).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** MSP Lite `.ms` = a 4-byte prefix + `MSL2`; never validate the varying prefix. Sandbox copies must be invalidated when the rawfile changes (compare sizes, not just existence).
+
+---
+## Update: 2026-10-04 14:00:00
+**Developer:** s3r10us3r
+
+**Task:** send the scanned text to DeepSeek so "Describe" answers the actual message.
+
+#### 1. AI Features
+* **Inference Flow:** the optional DeepSeek call now includes the **OCR text that raised the incident**, not just the KB incident fields, so the reply addresses the real content.
+* **Data Handling & Privacy:** the scanned text leaves the device only when a key is set and the user taps Describe; the on-screen caption now says so.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** plumbed `outcome.text` through `SmartIsland` → `onDetails(json, text)` → route params → `IncidentDetail.scannedText` → `DeepSeekClient.describe(title, body, message)`. The user message is `Incident: … / Message shown on screen: """ … """` (capped at 4000 chars). Caption: "Sends the scanned text and incident details to DeepSeek."
+* **Key Prompts:** "Give deepseek all of the scanned texts, his responses do not address the content."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL; installed (signed). The live response is not verified here (needs a real key).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to verify a live Describe against the scanned text.
+* **Security Checks:** the scanned text goes off-device only on explicit user action; no key in the repo.
+
+#### 5. Limitations & Lessons Learned
+* **Note:** the working tree also held a **concurrent session's uncommitted edits** (KB → 8 incidents, threshold, meta, docs); only the five files for this change were committed.
+
+---
+## Update: 2026-10-04 13:45:00
+**Developer:** s3r10us3r
+
+**Task:** untrack the remaining Python tooling (kept on disk).
+
+#### 3. Development Workflow & Prompts
+* **Untracked (kept on disk, git-ignored):** `tools/fetch_model.py`, `tools/laya/convert_laya.py`, `tools/laya/rl_agent_api.py`, `tools/laya/rl_common.py`. The repo now carries app code, tests, and docs only; the LAY A conversion/fetch tooling stays local.
+* **Key Prompts:** "untrack the py scripts as well just do not delete."
+* **Follow-up (done):** `README.md` (repo layout + model provisioning + build output), `LAYA_INTEGRATION.md` (converter/asset notes; also fixed the stale incident count 10 → 9), and `AGENTS.md` §11 now state the tooling is kept out of the repo and ships with the release assets.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer decision (repo holds project code/tests/docs only).
+* **Security Checks:** no secrets; signing config stays local.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** a fresh clone can no longer run `tools/fetch_model.py` to provision the `.ms`, so the README provisioning step is stale until the docs are updated or the scripts are distributed another way.
+
+---
+## Update: 2026-10-04 13:35:00
+**Developer:** s3r10us3r
+
+**Task:** repo cleanup before release (untrack local-only helpers).
+
+#### 3. Development Workflow & Prompts
+* **Audit:** build output/caches, the 412 MB `.ms`, module lock files, and signing material are all correctly git-ignored; the repo only held a few stray **tracked** files.
+* **Untracked (kept on disk, added to `.gitignore`):** `HuwaweiChallenge/.vscode/settings.json` (IDE config, §8); `fix-deveco-emulator-region.ps1` and six one-off `tools/laya` dev scripts (`dump_ms`, `test_equiv`, `test_local`, `tokenizer_check`, `try_laya`, `validate_ms`) — local helpers, §9; `HuwaweiChallenge/oh-package-lock.json5` (already covered by `**/oh-package-lock.json5`).
+* **Kept:** `convert_laya.py`, `rl_agent_api.py`, `rl_common.py`, `tools/fetch_model.py` (used by the converter / dev server / provisioning).
+* **Key Prompts:** "Now we will clean the repo of all the unneccessary stuff."; "leave the scripts but remove them from the remote repository."
+
+#### 4. Review & Validation
+* **Human Oversight:** developer chose which files to drop; `HuwaweiChallenge/AI_WORKFLOW.md` left in place for now.
+* **Security Checks:** no secrets added; the signing config stays local (`skip-worktree`).
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** `.gitignore` only affects *untracked* files — the stray lock file and IDE config had to be `git rm --cached` to actually leave the repo. Local helpers stay on disk but out of the remote.
+
+---
+## Update: 2026-10-04 13:20:00
+**Developer:** s3r10us3r
+
+**Task:** produce a **signed** HAP artifact for a real-device demo.
+
+#### 3. Development Workflow & Prompts
+* **Signing:** DevEco Studio → Project Structure → Signing Configs → **Automatically generate signature** (Huawei developer account) created a `default` signing config (cert `~/.ohos/config/*.cer`, profile `*.p7b`, keystore `*.p12`) and wrote a `signingConfigs` block into `build-profile.json5`.
+* **Install fix:** the first signed install failed with `code:9568332 install sign info inconsistent` (device still had the unsigned build) → `bm uninstall -n com.example.huwaweichallenge`, then install; the signed app launches.
+* **CLI:** `assembleHap` now runs `SignHap` (no "skip sign" warning) and emits `entry-default-signed.hap` (~444 MB, includes the bundled `.ms`).
+* **Key Prompts:** "Now I need you to be able to build the .hap artifact."; "We need a signed build. I logged in into huwawei developer account in the dev IDE."
+
+#### 4. Review & Validation
+* **Human Oversight:** signing config generated from the developer's own Huawei account; developer to review before any broader distribution.
+* **Security Checks:** the `signingConfigs` block (absolute paths + encrypted passwords) is kept **local** via `git update-index --skip-worktree HuwaweiChallenge/build-profile.json5`; cert/key/profile live in `~/.ohos/config` (outside the repo) and are covered by `.gitignore` (`*.p12`, `*.p7b`, `*.cer`). `*.hap` is git-ignored.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the signed HAP is 444 MB — distribute via a GitHub Release, not the repo. Signing material is machine-specific, so other checkouts build unsigned until they add their own config.
+* **Lessons Learned:** switching an install from unsigned to signed requires a one-time uninstall (sign-info mismatch); DevEco auto-signing stores material under `~/.ohos/config` and references it from `build-profile.json5`, so that block must never be committed.
+
+---
+## Update: 2026-10-04 13:00:00
+**Developer:** s3r10us3r
+
+**Task:** ship polish — rename the app label + real launcher icons for Guardian and the Messages mock. **Not committed/pushed.**
+
+#### 3. Development Workflow & Prompts
+* **Rename:** the on-device ability label was literally `"label"` (`EntryAbility_label`) and the app name was `HuwaweiChallenge`; set both to **Guardian** (`entry/.../element/string.json`, `AppScope/.../element/string.json`).
+* **Icons:** generated real 1024² layered icons — `background.png` (dark / blue gradient) + `foreground.png` (the existing `shield.svg` for Guardian, a chat bubble for Messages) — using headless Chrome (SVG→PNG with transparency) + Pillow (gradients + 144² splash `startIcon.png`). Wrote to `AppScope` **and** `entry` media for both projects.
+* **Key Prompts:** "rename the app (it's label now) and add icon to it and the message mock."
+* **Testing & Debugging:** `assembleHap` BUILD SUCCESSFUL for both projects; installed both; home screen shows Guardian (shield on dark) and Messages (bubble on blue); Guardian relaunches clean (`incidents loaded: 9`).
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to confirm the final icon look.
+* **Security Checks:** none.
+
+#### 5. Limitations & Lessons Learned
+* **Lessons Learned:** the launcher uses the **ability** icon/label (`module.json5`) as well as `AppScope/app.json5`; the default layered foreground was a blank white PNG, so the icon looked empty until replaced.
+
+---
+## Update: 2026-10-04 12:35:00
+**Developer:** s3r10us3r
+
+**Task:** optional BYO-key DeepSeek "Describe" + Settings popup + curated Facebook misinfo case. **Not committed/pushed.**
+
+#### 1. AI Features
+* **Model/Service:** DeepSeek `deepseek-chat` (`https://api.deepseek.com/chat/completions`) — the only off-device feature, opt-in with the user's **own** API key (BYO key, no server of ours). No key is bundled.
+* **Inference Flow:** the key is stored on-device (`preferences`, store `guardian_cloud`); `DeepSeekClient.describe()` POSTs title + description + explanation and returns 2–3 plain sentences. The "Describe with DeepSeek" button shows **only** on incidents with `escalation !== 'L0'` **and** when a key is set.
+* **Data Handling & Privacy:** nothing is sent unless the user sets a key and taps Describe; the button carries an explicit "Sends this incident's text to DeepSeek." caption. The `ohos.permission.INTERNET` comment now covers this optional path too.
+* **Limitations & Validation:** button is hidden with no key; network/HTTP/empty-response errors surface a friendly message and keep the local L0 content. The live DeepSeek call itself is not exercised (no real key available); UI + gating verified on the emulator.
+
+#### 2. AI Development Tools Used
+* **Models & Agents:** OpenCode agent on `deepseek/deepseek-flash`.
+* **MCP Servers & Skills:** none.
+
+#### 3. Development Workflow & Prompts
+* **Implementation:** new `dev/DeepSeekSettings.ets` (preferences-backed key), `dev/DeepSeekClient.ets` (NetworkKit), `components/SettingsDialog.ets` (`@CustomDialog`). Removed the inline key field from `Index` and added a top-right **Settings** button that opens the popup. `DetailTypes` now parses `escalation`; `IncidentDetail` owns the describe state and `IncidentDetailView` renders the button/result.
+* **Key Prompts:** "Make the deepseek api key a settings popup so you click settings and then a popup appears and then you can fill it"; "don't even render the button if there is no key... handle errors gracefully"; "add a curated case that throws misinfo on facebook so i can trigger the event."
+* **Testing & Debugging:** `$apiKey` in the `CustomDialogController` builder threw `ReferenceError: $apiKey is not defined` (app crash) → switched to a plain `initialKey` prop + `onSave` callback; renamed the dialog state `key` → `draftKey` (collides with base `CustomComponent.key`). Added a curated Facebook misinformation post (`facebook-feed-mock` `p2c`, the "Truth Patriots Daily" freeze-your-pension claim) built from the `unverified-alarming-news` keywords. `assembleHap` BUILD SUCCESSFUL; **31/31** unit tests; installed; Settings popup renders and the saved key persists. Chose content-only over a deterministic override so the LAY A deception gate stays authoritative.
+
+#### 4. Review & Validation
+* **Human Oversight:** developer to enter a real DeepSeek key and verify a live Describe; developer to review the curated post and the Settings layout.
+* **Security Checks:** no key in the repo; the key lives in app `preferences`; INTERNET remains optional/dev.
+
+#### 5. Limitations & Lessons Learned
+* **Limitations:** the curated FB post relies on the provisional LAY A deception head. The on-device LAY A `.ms` still needs re-export for the 2-question incident schema.
+* **Lessons Learned:** ArkTS `@CustomDialog` does not accept a `$state` @Link in the `CustomDialogController` builder here — pass plain props + a callback; and avoid `key` as a component state name.
+
+---
 ## Update: 2026-10-04 05:45:13
 **Developer:** s3r10us3r
 

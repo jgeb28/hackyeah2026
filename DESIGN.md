@@ -850,7 +850,7 @@ message carries the case's `cta`, and only a tap escalates.
 | id | sev | esc | description (LAY A option text) |
 | --- | --- | --- | --- |
 | `family-emergency-money` *(scenario A)* | CRITICAL | L0 | A relative in trouble asks for urgent money and says not to call. |
-| `misinfo-breaking-event` *(scenario B)* | WARNING | L2 | An alarming breaking claim with no source, urging you to share it. |
+| `unverified-alarming-news` *(scenario B)* | WARNING | L2 | Big, alarming news with a weak or no source, urging you to share it. |
 | `bank-authority-impersonation` | CRITICAL | L0 | Claims to be your bank, police, tax office or utility and pressures you to verify or pay now. |
 | `delivery-fee-smishing` | WARNING | L0 | A held-parcel message asks for a small fee or your details via a link. |
 | `otp-verification-theft` | CRITICAL | L0 | Someone asks you to read out or forward a one-time code. |

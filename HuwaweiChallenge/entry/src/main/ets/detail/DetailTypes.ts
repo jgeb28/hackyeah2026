@@ -5,6 +5,7 @@ export interface IncidentDoc {
   id: string;
   category: string;
   severity: string;
+  escalation: string;
   title: string;
   description: string;
   explanation: string;
@@ -17,6 +18,7 @@ interface RawIncident {
   id?: string;
   category?: string;
   severity?: string;
+  escalation?: string;
   title?: string;
   description?: string;
   explanation?: string;
@@ -61,6 +63,7 @@ export function parseIncident(json: string): IncidentDoc | null {
     id: asString(raw.id),
     category: asString(raw.category),
     severity: severity.length > 0 ? severity : 'INFO',
+    escalation: asString(raw.escalation),
     title: asString(raw.title),
     description: asString(raw.description),
     explanation: asString(raw.explanation),

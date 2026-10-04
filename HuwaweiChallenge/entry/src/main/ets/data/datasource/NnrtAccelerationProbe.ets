@@ -9,6 +9,8 @@ export class AccelerationInfo {
   available: boolean = false;
   backend: string = 'CPU';
   devices: string = '';
+  /** NNRt device id to target (-1 = none → use CPU). */
+  deviceID: number = -1;
 }
 
 /**
@@ -25,15 +27,30 @@ export class NnrtAccelerationProbe {
       const devices = mindSporeLite.getAllNNRTDeviceDescriptions();
       if (devices !== null && devices.length > 0) {
         const names: string[] = [];
+        let acceleratorId: number = -1;
+        let fallbackId: number = -1;
         for (let i = 0; i < devices.length; i++) {
-          names.push(`${devices[i].deviceName()} (type ${devices[i].deviceType()})`);
+          const type: number = devices[i].deviceType();
+          const id: number = Number(devices[i].deviceID());
+          names.push(`${devices[i].deviceName()} (type ${type})`);
+          if (type === mindSporeLite.NNRTDeviceType.NNRTDEVICE_ACCELERATOR && acceleratorId < 0) {
+            acceleratorId = id;
+          }
+          if (fallbackId < 0 && type !== mindSporeLite.NNRTDeviceType.NNRTDEVICE_CPU) {
+            fallbackId = id;
+          }
         }
         info.available = true;
-        info.backend = 'NNRt accelerator (NPU)';
+        info.backend = acceleratorId >= 0 ? 'NNRt accelerator (NPU)' : 'NNRt';
         info.devices = names.join(', ');
+        info.deviceID = acceleratorId >= 0 ? acceleratorId : fallbackId;
+        hilog.info(DOMAIN, TAG, 'NNRt devices: %{public}s', info.devices);
+        hilog.info(DOMAIN, TAG, 'NNRt selected deviceID=%{public}d backend=%{public}s',
+          info.deviceID, info.backend);
       }
     } catch (error) {
-      hilog.warn(DOMAIN, TAG, 'NNRt probe failed: %{public}s', JSON.stringify(error));
+      const message: string = (error as Error).message !== undefined ? (error as Error).message : '';
+      hilog.warn(DOMAIN, TAG, 'NNRt unavailable: %{public}s', message);
     }
     return info;
   }

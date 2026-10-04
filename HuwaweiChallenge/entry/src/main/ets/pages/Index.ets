@@ -3,6 +3,8 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { common } from '@kit.AbilityKit';
 import { IslandOverlay } from '../alert/IslandOverlay';
 import { Backend, BackendSettings } from '../dev/BackendSettings';
+import { DeepSeekSettings } from '../dev/DeepSeekSettings';
+import { SettingsDialog } from '../components/SettingsDialog';
 
 const DOMAIN: number = 0x0A11;
 
@@ -11,14 +13,35 @@ const DOMAIN: number = 0x0A11;
 struct Index {
   @State floating: boolean = false;
   @State remote: boolean = false;
+  @State apiKey: string = '';
+  private settingsDialog: CustomDialogController | null = null;
 
   aboutToAppear(): void {
     this.remote = BackendSettings.isRemote;
+    this.apiKey = DeepSeekSettings.key;
+    this.settingsDialog = new CustomDialogController({
+      builder: SettingsDialog({
+        initialKey: this.apiKey,
+        onSave: (key: string) => {
+          this.saveKey(key);
+        }
+      }),
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+      customStyle: true
+    });
   }
 
   onPageShow(): void {
     this.floating = IslandOverlay.isShown();
     this.remote = BackendSettings.isRemote;
+    this.apiKey = DeepSeekSettings.key;
+  }
+
+  private saveKey(key: string): void {
+    this.apiKey = key;
+    const ctx: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
+    DeepSeekSettings.setKey(ctx, key);
   }
 
   private async toggleGuard(): Promise<void> {
@@ -43,6 +66,19 @@ struct Index {
 
   build() {
     Column() {
+      Row() {
+        Blank()
+        Button('Settings')
+          .fontSize(13)
+          .height(36)
+          .backgroundColor('#1A2029')
+          .fontColor('#CBD3DE')
+          .onClick(() => {
+            this.settingsDialog?.open();
+          })
+      }
+      .width('100%')
+
       Column({ space: 16 }) {
         Image($r('app.media.shield'))
           .width(150)

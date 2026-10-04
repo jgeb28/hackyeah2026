@@ -11,13 +11,14 @@ const TAG: string = 'GuardianIsland';
 
 interface DetailParams {
   json: string;
+  text: string;
 }
 
 @Entry
 @Component
 struct FloatingIsland {
-  private openDetails(json: string): void {
-    const params: DetailParams = { json: json };
+  private openDetails(json: string, text: string): void {
+    const params: DetailParams = { json: json, text: text };
     IslandOverlay.setDetailMode(true);
     this.getUIContext().getRouter()
       .pushUrl({ url: 'pages/IncidentDetail', params: params })
@@ -40,8 +41,8 @@ struct FloatingIsland {
         onResize: (expanded: boolean) => {
           IslandOverlay.resize(expanded);
         },
-        onDetails: (json: string) => {
-          this.openDetails(json);
+        onDetails: (json: string, text: string) => {
+          this.openDetails(json, text);
         }
       })
     }
