@@ -12,8 +12,9 @@
     "pages": "$profile:main_pages",
     "requestPermissions": [
       {
-        // DEV-ONLY: used only by the in-app "Remote GPU" backend switch. Must be
-        // removed before the shipping build (the product is offline/on-device).
+        // Used only by the optional network features: the dev "Remote GPU" switch,
+        // and the user-enabled "Describe with DeepSeek" action (the user's own key).
+        // The core product is offline/on-device; remove this for a strictly offline build.
         "name": "ohos.permission.INTERNET"
       },
       {

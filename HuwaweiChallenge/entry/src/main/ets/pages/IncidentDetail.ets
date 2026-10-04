@@ -1,7 +1,14 @@
-// IncidentDetail — normal app screen that hosts IncidentDetailView.
-// Hardcoded single incident for testing. The route `json` param (the LAYA seam)
-// overrides it with a supplied incident JSON when present.
+// IncidentDetail — hosts IncidentDetailView. An optional cloud "Describe" action
+// (DeepSeek, the user's own key, no server) is offered on incidents above the
+// lowest escalation level `L0`, and only when a key is set.
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { IncidentDetailView } from '../components/IncidentDetailView';
+import { IncidentDoc, parseIncident } from '../detail/DetailTypes';
+import { DeepSeekSettings } from '../dev/DeepSeekSettings';
+import { DeepSeekClient } from '../dev/DeepSeekClient';
+
+const DOMAIN: number = 0x0A11;
+const TAG: string = 'GuardianDetail';
 
 interface DetailParams {
   json?: string;
@@ -12,8 +19,9 @@ const INCIDENT_JSON: string = JSON.stringify({
   id: 'bank-authority-impersonation',
   category: 'scam',
   severity: 'CRITICAL',
+  escalation: 'L0',
   title: 'Possible impersonation',
-  description: 'Someone claims to be your bank, police, or tax office and pushes you to verify or pay immediately.',
+  description: 'A fake bank, police or tax office pressures you to verify or pay now.',
   explanation: 'Real banks and authorities never ask you to verify or pay through a link in a message.',
   remediation: [
     'Contact your bank using the number on your card or the official app.',
@@ -27,11 +35,44 @@ const INCIDENT_JSON: string = JSON.stringify({
 @Component
 struct IncidentDetail {
   @State json: string = INCIDENT_JSON;
+  @State canDescribe: boolean = false;
+  @State describeStatus: string = 'idle'; // idle | loading | done | error
+  @State describeText: string = '';
 
   aboutToAppear(): void {
     const params: DetailParams = this.getUIContext().getRouter().getParams() as DetailParams;
     if (params !== undefined && params !== null && typeof params.json === 'string' && params.json.length > 0) {
       this.json = params.json;
+    }
+    const doc: IncidentDoc | null = parseIncident(this.json);
+    const escalation: string = doc !== null ? doc.escalation : '';
+    // Above L0, and only when the user has provided their own DeepSeek key.
+    this.canDescribe = escalation.length > 0 && escalation !== 'L0' && DeepSeekSettings.hasKey;
+  }
+
+  private async describe(): Promise<void> {
+    const doc: IncidentDoc | null = parseIncident(this.json);
+    if (doc === null) {
+      return;
+    }
+    this.describeStatus = 'loading';
+    this.describeText = '';
+    try {
+      const body: string = `${doc.description}\n\n${doc.explanation}`;
+      this.describeText = await DeepSeekClient.describe(doc.title, body);
+      this.describeStatus = 'done';
+    } catch (err) {
+      const code: number | undefined = (err as BusinessError).code;
+      const message: string = (err as Error).message !== undefined ? (err as Error).message : '';
+      if (code !== undefined) {
+        this.describeText = 'Could not reach DeepSeek. Check your connection and try again.';
+      } else if (message.indexOf('key') >= 0) {
+        this.describeText = 'Add your DeepSeek API key in Settings to use this.';
+      } else {
+        this.describeText = message.length > 0 ? message : 'Could not reach DeepSeek. Try again.';
+      }
+      this.describeStatus = 'error';
+      hilog.warn(DOMAIN, TAG, 'describe failed: %{public}s', message);
     }
   }
 
@@ -49,7 +90,15 @@ struct IncidentDetail {
       .width('100%')
       .padding({ left: 16, right: 16, top: 8, bottom: 4 })
 
-      IncidentDetailView({ json: this.json })
+      IncidentDetailView({
+        json: this.json,
+        canDescribe: this.canDescribe,
+        describeStatus: this.describeStatus,
+        describeText: this.describeText,
+        onDescribe: () => {
+          this.describe();
+        }
+      })
     }
     .width('100%')
     .height('100%')
