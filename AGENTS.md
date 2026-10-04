@@ -6,21 +6,16 @@ repository. Read it before doing any work and follow it for the entire session.
 
 ---
 
-## 0. THE PRIME DIRECTIVE — Maintain your `AI_WORKFLOW_<git-username>.md`
+## 0. Workflow documentation — one team file
 
-> **Every agent MUST keep its own per-developer workflow file up to date.**
+> **All agents record their work in the single team file
+> [`HuwaweiChallenge/AI_WORKFLOW.md`](./HuwaweiChallenge/AI_WORKFLOW.md).**
 
 This is a mandatory hackathon deliverable. The challenge requires any team that
 uses AI tools during development **and/or** ships an AI feature to publish an AI
-workflow document. Because this entire project is built with AI agents, that
-means **you**.
+workflow document. We keep **one** team-level file — there are **no
+per-developer `AI_WORKFLOW_*.md` files**.
 
-**AI_WORKFLOW rules** (authoritative source:
-[`HuwaweiChallenge/AGENTS.md`](./HuwaweiChallenge/AGENTS.md)):
-
-- **File name:** `AI_WORKFLOW_<git-username>.md`, derived from
-  `git config user.name` — lowercased, spaces → hyphens
-  (e.g. `AI_WORKFLOW_jane-doe.md`). Do not edit another developer's file.
 - **Newest first:** each update is **prepended** at the top of the file.
 - **Timestamp every update:** `## Update: [YYYY-MM-DD HH:MM:SS]` immediately
   followed by `**Developer:** <git-username>`.
@@ -30,8 +25,8 @@ means **you**.
 
 Concretely, every agent must:
 
-1. **Before starting a task** — read its per-developer file to understand what
-   has already been recorded and avoid contradicting or duplicating it.
+1. **Before starting a task** — read the team file to see what is recorded and
+   avoid contradicting or duplicating it.
 2. **During the task** — note the model(s)/service(s) used, the prompts and
    instructions that mattered, the approach taken, and anything that failed.
 3. **After completing every significant task** (feature, bug fix, refactor,
@@ -40,8 +35,7 @@ Concretely, every agent must:
 4. **Before ending a session or opening a pull request** — run the pre-flight
    checklist in §6 and confirm the workflow file is current.
 
-Updating the workflow file is **part of "done"**. Never delete or rewrite another
-developer's entries — append and correct with a clearly marked note if needed.
+Updating the workflow file is **part of "done"**.
 
 ---
 
@@ -104,10 +98,13 @@ Because we use AI-assisted development tools, document **all** of the following:
 
 Prompts and tool usage should be documented **as fully as reasonably possible**.
 
-### B. AI features — REQUIRED if the submission includes an AI feature
+### B. AI features — documented separately, not in `AI_WORKFLOW.md`
 
-If any part of the product uses an AI model or service at runtime, additionally
-document, per feature:
+`AI_WORKFLOW.md` covers the **development workflow and tools only**. If any part
+of the product uses an AI model or service at runtime, document it in the
+project's AI integration document (e.g.
+[`HuwaweiChallenge/LAYA_INTEGRATION.md`](./HuwaweiChallenge/LAYA_INTEGRATION.md))
+and link that document from `AI_WORKFLOW.md`. Per feature, document:
 
 - **The model or service** used (name, provider, version).
 - **The inference flow** (inputs, preprocessing, where inference runs, outputs,
@@ -117,11 +114,10 @@ document, per feature:
 - **The validation approach** (how correctness and failure modes were tested).
 - **Privacy considerations** (on-device vs. remote, consent, retention, PII).
 
-### C. Submissions may also need additional AI integration documentation
+### C. Linking
 
-If the submission includes AI features, `AI_WORKFLOW.md` alone is not enough —
-also maintain the separate, concise architecture/implementation document that
-explains the AI integration. Link it from `AI_WORKFLOW.md`.
+`AI_WORKFLOW.md` must link the AI integration document so a reader can find the
+feature's model, inference, data handling, limitations, validation and privacy.
 
 ---
 
@@ -148,7 +144,8 @@ explains the AI integration. Link it from `AI_WORKFLOW.md`.
 
 ## 4. Update template (prepend for every significant task)
 
-**Prepend** this block to the top of `AI_WORKFLOW_<git-username>.md` (newest
+**Prepend** this block to the top of
+[`HuwaweiChallenge/AI_WORKFLOW.md`](./HuwaweiChallenge/AI_WORKFLOW.md) (newest
 first) for each meaningful unit of work:
 
 ```markdown
@@ -190,7 +187,7 @@ honest, specific, and heavily compressed.
 ## 5. Configuration & prompt hygiene
 
 - If a tool reads configuration (agent configs, `opencode.jsonc`, MCP config,
-  skills), record **the relevant parts** in `AI_WORKFLOW_<git-username>.md` — not
+  skills), record **the relevant parts** in `HuwaweiChallenge/AI_WORKFLOW.md` — not
   the whole file if it is large. Reference the path and summarize, then quote the
   parts that shaped behavior.
 - Store secrets in environment variables or a git-ignored local file. Never put
@@ -202,7 +199,7 @@ honest, specific, and heavily compressed.
 
 ## 6. Pre-flight checklist (run before finishing any task / PR)
 
-- [ ] I read my `AI_WORKFLOW_<git-username>.md` before working.
+- [ ] I read the team `AI_WORKFLOW.md` before working.
 - [ ] I prepended a timestamped update for this task using the §4 template.
 - [ ] AI models, agents, MCP servers, skills, and tools used are named.
 - [ ] The meaningful prompts/instructions and relevant config are recorded.
@@ -220,7 +217,7 @@ honest, specific, and heavily compressed.
 - [ ] No secrets, credentials, or personal data were added anywhere.
 - [ ] Only task-relevant files were staged/committed — no editor/IDE configs,
       generated output, large binaries, or unrelated prior work (see §8).
-- [ ] My `AI_WORKFLOW_<git-username>.md` renders correctly and links are valid.
+- [ ] The team `AI_WORKFLOW.md` renders correctly and links are valid.
 
 ---
 
@@ -232,8 +229,8 @@ honest, specific, and heavily compressed.
   anywhere.
 - **Keep changes modular and readable.** Add reasonable error handling and
   input validation. No unnecessary permissions or risky dependencies.
-- **Test the key scenarios** and record the evidence in the per-developer
-  workflow file; full
+- **Test the key scenarios** and record the evidence in the team
+  `AI_WORKFLOW.md`; full
   coverage is not required, but show that you checked your own work.
 - **Document reproducibility.** Keep setup/build/launch instructions in the
   README accurate and in sync with the code.
@@ -310,7 +307,7 @@ iterate quickly; the shipping product is on-device and offline.
   remote/dev code before the submission build; the shipping app stays on-device
   and offline.
 - **Record parity status.** Note any schema/policy change and whether the
-  on-device model has been re-exported in `AI_WORKFLOW_<git-username>.md` while
+  on-device model has been re-exported in `AI_WORKFLOW.md` while
   the two paths are temporarily out of parity.
 
 ---

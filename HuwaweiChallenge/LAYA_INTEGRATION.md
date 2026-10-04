@@ -116,6 +116,20 @@ Runtime CPU thread count is configurable. Quantisation + a shorter sequence chan
 the verdict, so diff decisions against the validated fp32 graph before trusting a
 new artefact.
 
+## Validation & limitations
+
+- **OCR.** PP-OCRv4 det+rec (fp16 `.ms`) matches an ONNX-Runtime reference —
+  recognition max|Δ| 3e-5 and 6/6 lines correct on device.
+- **Deception gate.** The fine-tuned head was selected on a leakage-free held-out
+  set: deception **AUC 0.930**. The shipped gate threshold of 0.25 gives roughly
+  **7% false negatives / 27% false positives** (recall-first by design).
+- **Incident head.** Weaker (macro-F1 ≈ 0.33); it only chooses which incident
+  copy to show, so it cannot by itself raise or clear an alert.
+- **Latency & device.** The emulator is CPU-only, so Laya inference there takes
+  seconds-to-minutes — hence the int8 `w8`/s256 artefact. A Kirin phone would use
+  the NPU via NNRt.
+- **Coverage.** OCR is English-only and the incident set is small (9 cases).
+
 ## Assets to bundle (`entry/src/main/resources/rawfile/`)
 
 | File | Source | Notes |
